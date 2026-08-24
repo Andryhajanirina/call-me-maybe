@@ -12,7 +12,6 @@ VENV          = .venv
 UV            = uv
 PYTHON       = $(VENV)/bin/python
 
-# Variables d'environnement
 HF_HOME               = $(GOINFRE)/.cache/huggingface
 UV_CACHE_DIR          = $(GOINFRE_CACHE)
 UV_PYTHON_PREFERENCE  = managed
@@ -21,30 +20,45 @@ export HF_HOME
 export UV_CACHE_DIR
 export UV_PYTHON_PREFERENCE
 
-# Évite les conflits si un fichier porte le même nom qu'une règle
+MYPY_FLAGS  := . --exclude=$(VENV) --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
+
+GREEN       := \033[0;32m
+INFO_COLOR  := \033[0;36m
+INFO_BOLD   := \033[1;36m
+WARN_COLOR  := \033[0;93m
+WARN_BOLD   := \033[1;93m
+ERROR_COLOR := \033[0;31m
+ERROR_BOLD  := \033[1;31m
+RESET       := \033[0m
+
+# Avoids conflicts if a file has the same name as a rule
 .PHONY: all install run debug clean lint lint-strict lock sync add
 
 # ==============================================================================
-# RÈGLES MANDATAIRES
+# MANDATORY RULES
 # ==============================================================================
 
 all: install lint
 
-# IV.2 : install - Configuration du venv dans le goinfre et installation des dépendances
 install:
-	@echo "🔧 Configuration de l'environnement de développement..."
-	 if [ ! -L $(VENV) ]; then \
+	@echo "$(INFO_BOLD)🔧 Configuring the development environment...$(RESET)"
+	@if [ ! -L $(VENV) ]; then \
 		rm -rf $(VENV); \
 		mkdir -p $(GOINFRE_VENV); \
 		ln -s $(GOINFRE_VENV) $(VENV); \
-	 fi
+	fi
 
-	@echo "📦 Ajout des outils de dev par défaut (flake8, mypy)..."
-	$(UV) init --package
+	@echo "$(INFO_BOLD)📦 Added default development tools (flake8, mypy)...$(RESET)"
+	@if [ -f pyproject.toml ]; then \
+		echo "$(INFO_BOLD)ℹ️  The pyproject.toml file already exists. uv will update the dependencies.$(RESET)"; \
+	else \
+		$(UV) init --package; \
+	fi
 	$(UV) add --dev flake8 mypy
+
 	$(UV) add ./llm_sdk
 
-	@echo "📦 Synchronisation des dépendances avec uv sync..."
+	@echo "$(INFO_BOLD) Synchronizing dependencies with UV sync...$(RESET)"
 	$(UV) sync
 
 # ==============================================================================
@@ -57,19 +71,19 @@ sync:
 	$(UV) sync
 
 # ==============================================================================
-# AJOUT DE PACKAGES
+# ADDING PACKAGES
 # ==============================================================================
 
 add:
 	@$(eval PKGS := $(filter-out $@,$(MAKECMDGOALS)))
 	@if [ -z "$(PKGS)" ]; then \
-		echo "❌ Erreur: Spécifiez au moins un package."; \
+		echo "$(ERROR_BOLD)❌ Error:$(RESET) $(ERROR_COLOR)Specify at least one package.$(RESET)"; \
 		echo "   Exemple: make add mypy flake8"; \
 		exit 1; \
 	fi
 	$(UV) add $(PKGS)
 
-# Permet à make d'accepter les noms de packages après "add"
+# Allows make to accept package names after "add"
 %:
 	@:
 
@@ -81,17 +95,17 @@ debug:
 	@$(UV) run $(PYTHON) -m pdb $(MAIN_SCRIPT)
 
 # ==============================================================================
-# CLEAN - Nettoyage complet des caches et fichiers temporaires
+# CLEAN - Complete clearing of caches and temporary files
 # ==============================================================================
 clean:
-	@echo "🧹 Nettoyage des caches et fichiers temporaires..."
+	@echo "$(WARN_BOLD)🧹 Clearing caches and temporary files...$(RESET)"
 	rm -rf .mypy_cache .pytest_cache .uv
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pyo" -delete
 
 fclean: clean
-	@echo "🧹 Nettoyage des caches, venvs, uv.lock, .python-version..."
+	@echo "$(WARN_BOLD)🧹 Cleaning caches, venvs, uv.lock, .python-version...$(RESET)"
 	rm -rf $(GOINFRE)/$(CACHE)
 	rm -rf $(VENV)
 	rm -rf $(GOINFRE)/venvs
@@ -102,21 +116,21 @@ fclean: clean
 	rm -rf src
 
 # ==============================================================================
-# lint - Vérification des normes de code (Flake8 et Mypy)
+# lint - Code standards verification (Flake8 and Mypy)
 # ==============================================================================
 lint:
-	@if [ ! -f $(VENV)/bin/flake8 ]; then echo "❌ Erreur: Lancez 'make install' d'abord."; exit 1; fi
-	@echo "🔍 [Flake8] Vérification du codage standard..."
-	$(VENV)/bin/flake8 .
-	@echo "🔍 [Mypy] Analyse statique des types (Mode Standard)..."
-	$(VENV)/bin/mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
+	@if [ ! -f $(VENV)/bin/flake8 ]; then echo "$(ERROR_BOLD)❌ ERROR:$(RESET) $(ERROR_COLOR)Run 'make install' first.$(RESET)"; exit 1; fi
+	@echo "$(INFO_BOLD)🔍 [Flake8] Standard coding verification...$(RESET)"
+	$(VENV)/bin/flake8 . --exclude=$(VENV)
+	@echo "$(INFO_BOLD)🔍 [Mypy] Static type analysis (Standard mode)...$(RESET)"
+	$(VENV)/bin/mypy . $(MYPY_FLAGS)
 
 # ==============================================================================
-# lint-strict - Mode de vérification renforcé
+# lint-strict - Enhanced verification method with (Flake8 and Mypy --strict)
 # ==============================================================================
 lint-strict:
-	@if [ ! -f $(VENV)/bin/flake8 ]; then echo "❌ Erreur: Lancez 'make install' d'abord."; exit 1; fi
-	@echo "🔍 [Flake8] Vérification du codage standard..."
-	$(VENV)/bin/flake8 .
-	@echo "🔍 [Mypy] Analyse statique des types (Mode Strict)..."
-	$(VENV)/bin/mypy . --strict
+	@if [ ! -f $(VENV)/bin/flake8 ]; then echo "$(ERROR_BOLD)❌ ERROR:$(RESET) $(ERROR_COLOR)Run 'make install' first.$(RESET)"; exit 1; fi
+	@echo "$(INFO_BOLD)🔍 [Flake8] Standard coding verification...$(RESET)"
+	$(VENV)/bin/flake8 . --exclude=$(VENV)
+	@echo "$(INFO_BOLD)🔍 [Mypy] Static type analysis (Strict mode)...$(RESET)"
+	$(VENV)/bin/mypy . --strict $(MYPY_FLAGS)
