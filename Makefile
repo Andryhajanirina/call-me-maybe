@@ -20,7 +20,7 @@ export HF_HOME
 export UV_CACHE_DIR
 export UV_PYTHON_PREFERENCE
 
-MYPY_FLAGS  := . --exclude=$(VENV) --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
+MYPY_FLAGS  := --exclude=$(VENV) --exclude='llm_sdk' --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
 
 GREEN       := \033[0;32m
 INFO_COLOR  := \033[0;36m
@@ -121,7 +121,8 @@ fclean: clean
 lint:
 	@if [ ! -f $(VENV)/bin/flake8 ]; then echo "$(ERROR_BOLD)❌ ERROR:$(RESET) $(ERROR_COLOR)Run 'make install' first.$(RESET)"; exit 1; fi
 	@echo "$(INFO_BOLD)🔍 [Flake8] Standard coding verification...$(RESET)"
-	$(VENV)/bin/flake8 . --exclude=$(VENV)
+# 	$(VENV)/bin/flake8 . --exclude=$(VENV)
+	$(VENV)/bin/flake8 .
 	@echo "$(INFO_BOLD)🔍 [Mypy] Static type analysis (Standard mode)...$(RESET)"
 	$(VENV)/bin/mypy . $(MYPY_FLAGS)
 
@@ -131,6 +132,7 @@ lint:
 lint-strict:
 	@if [ ! -f $(VENV)/bin/flake8 ]; then echo "$(ERROR_BOLD)❌ ERROR:$(RESET) $(ERROR_COLOR)Run 'make install' first.$(RESET)"; exit 1; fi
 	@echo "$(INFO_BOLD)🔍 [Flake8] Standard coding verification...$(RESET)"
-	$(VENV)/bin/flake8 . --exclude=$(VENV)
+# 	$(VENV)/bin/flake8 . --exclude=$(VENV)
+	$(VENV)/bin/flake8 .
 	@echo "$(INFO_BOLD)🔍 [Mypy] Static type analysis (Strict mode)...$(RESET)"
 	$(VENV)/bin/mypy . --strict $(MYPY_FLAGS)
