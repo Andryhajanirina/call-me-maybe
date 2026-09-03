@@ -19,48 +19,58 @@ def main() -> None:
         schema,
     )
 
-    # 4. Récupération des tokens qui peuvent
-    #    commencer un nom de fonction
-    allowed = constraints.get_allowed_first_function_tokens()
+    # =========================test
+    # print("After []:", constraints.get_allowed_next_tokens([]))
 
-    print("Allowed first tokens:", allowed)
+    # print("After [8822]:", constraints.get_allowed_next_tokens([8822]))
 
-    # 5. On demande au modèle ses logits
-    input_ids = model.encode("What is the sum?")
+    # print(
+    #     "After [8822, 2891]:",
+    #     constraints.get_allowed_next_tokens([8822, 2891])
+    # )
+    prompt_ids = model.encode("What is the sum?").squeeze(0).tolist()
+    generated_tokens = []
+    for i in range(10):
+        allowed = constraints.get_allowed_next_tokens(generated_tokens)
 
-    logits = model.get_logits_from_input_ids(
-        input_ids.squeeze(0).tolist()
-    )
-    print("Number of logits:", len(logits))
+        if not allowed:
+            print("No allowed tokens. Generation finished.")
+            break
 
-    # 6. On applique notre contrainte
-    constrained_logits = constraints.apply_token_constraint(
-        logits,
-        allowed,
-    )
+        input_ids = prompt_ids + generated_tokens
+        logits = model.get_logits_from_input_ids(input_ids)
+        constrained_logits = constraints.apply_token_constraint(
+            logits,
+            allowed,
+        )
 
-    # 6.1
-    finite_tokens = [
-        token_id
-        for token_id, logit in enumerate(constrained_logits)
-        if logit != float("-inf")
-    ]
+        finite_tokens = [
+            token_id
+            for token_id, logit in enumerate(constrained_logits)
+            if logit != float("-inf")
+        ]
+        print("Number of allowed tokens:", len(finite_tokens))
+        print("Allowed tokens:", finite_tokens)
 
-    print("Number of allowed tokens:", len(finite_tokens))
-    print("Allowed tokens:", finite_tokens)
+        best_token_id = max(
+            range(len(constrained_logits)),
+            key=lambda token_id: constrained_logits[token_id],
+        )
 
-    # 7. On cherche le meilleur token après contrainte
-    best_token_id = max(
-        range(len(constrained_logits)),
-        key=lambda token_id: constrained_logits[token_id],
-    )
+        print(
+            "Best constrained token:",
+            model.decode([best_token_id]),
+        )
+        generated_tokens.append(best_token_id)
+        print("Generated tokens:", generated_tokens)
+        print("Generated text:", model.decode(generated_tokens))
 
-    print("Best constrained token ID:", best_token_id)
-
-    print(
-        "Best constrained token:",
-        model.decode([best_token_id]),
-    )
+        print(
+            constraints.is_complete_function_name(
+                generated_tokens
+            )
+        )
+    # =========================test
 
 
 if __name__ == "__main__":

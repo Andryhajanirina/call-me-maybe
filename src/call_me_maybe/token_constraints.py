@@ -46,3 +46,27 @@ class TokenConstraints:
             constrained[token_id] = logits[token_id]
 
         return constrained
+
+    def get_allowed_next_tokens(
+        self,
+        generated_tokens: list[int],
+    ) -> set[int]:
+        encoded = self.encode_function_names()
+
+        allowed: set[int] = set()
+
+        for token_ids in encoded.values():
+            if token_ids[:len(generated_tokens)] == generated_tokens:
+                if len(token_ids) > len(generated_tokens):
+                    allowed.add(token_ids[len(generated_tokens)])
+
+        return allowed
+
+    def is_complete_function_name(
+        self,
+        generated_tokens: list[int],
+    ) -> bool:
+        for token_ids in self.encode_function_names().values():
+            if token_ids == generated_tokens:
+                return True
+        return False
