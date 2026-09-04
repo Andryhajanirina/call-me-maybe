@@ -11,35 +11,6 @@ class JSONDecoder:
 
         Returns True if the character is valid for the current state.
         """
-        # if self.state == JSONState.START:
-        #     if char == "{":
-        #         self.state = JSONState.OBJECT_START
-        #         return True
-
-        # elif self.state == JSONState.OBJECT_START:
-        #     if char == '"':
-        #         self.state = JSONState.KEY
-        #         return True
-
-        # elif self.state == JSONState.KEY:
-        #     if char == '"':
-        #         self.state = JSONState.COLON
-        #         return True
-
-        # elif self.state == JSONState.COLON:
-        #     if char == ":":
-        #         self.state = JSONState.VALUE
-        #         return True
-
-        # elif self.state == JSONState.VALUE:
-        #     if char == '"':
-        #         self.state = JSONState.OBJECT_END
-        #         return True
-
-        # elif self.state == JSONState.OBJECT_END:
-        #     if char == "}":
-        #         self.state = JSONState.START
-        #         return True
 
         if self.state == JSONState.START:
             if char == "{":
@@ -55,6 +26,7 @@ class JSONDecoder:
             if char == '"':
                 self.state = JSONState.EXPECT_COLON
                 return True
+            return True
 
         elif self.state == JSONState.EXPECT_COLON:
             if char == ":":
@@ -67,8 +39,13 @@ class JSONDecoder:
                 return True
 
         elif self.state == JSONState.VALUE_CONTENT:
-            if char == "}":
+            if char == '"':
                 self.state = JSONState.EXPECT_OBJECT_END
+                return True
+            return True
+        elif self.state == JSONState.EXPECT_OBJECT_END:
+            if char == "}":
+                self.state = JSONState.DONE
                 return True
         return False
 
