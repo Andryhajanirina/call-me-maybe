@@ -4,6 +4,7 @@ from .json_state import JSONState
 class JSONDecoder:
     def __init__(self) -> None:
         self.state = JSONState.START
+        self.object_stack: list[str] = []
 
     def consume_char(self, char: str) -> bool:
         """
@@ -14,6 +15,7 @@ class JSONDecoder:
 
         if self.state == JSONState.START:
             if char == "{":
+                self.object_stack.append("object")
                 self.state = JSONState.EXPECT_KEY_START
                 return True
 
@@ -38,14 +40,32 @@ class JSONDecoder:
                 self.state = JSONState.VALUE_CONTENT
                 return True
 
+            if char == "{":
+                self.object_stack.append("object")
+                self.state = JSONState.EXPECT_KEY_START
+                return True
+
         elif self.state == JSONState.VALUE_CONTENT:
             if char == '"':
-                self.state = JSONState.EXPECT_OBJECT_END
+                self.state = JSONState.EXPECT_COMMA
                 return True
             return True
-        elif self.state == JSONState.EXPECT_OBJECT_END:
+
+        elif self.state == JSONState.EXPECT_COMMA:
+            if char == ",":
+                self.state = JSONState.EXPECT_KEY_START
+                return True
+
             if char == "}":
-                self.state = JSONState.DONE
+                if not self.object_stack:
+                    return False
+
+                self.object_stack.pop()
+
+                if not self.object_stack:
+                    self.state = JSONState.DONE
+                else:
+                    self.state = JSONState.EXPECT_COMMA
                 return True
         return False
 

@@ -3,6 +3,9 @@
 # ==============================================================================
 MAIN_SCRIPT = call-me-maybe
 
+FUNCTIONS = data/input/functions_definition.json
+INPUT = data/input/function_calling_tests.json
+OUTPUT = data/output/function_calling_results.json
 GOINFRE       = $(HOME)/goinfre
 CACHE         = .cache
 GOINFRE_VENV  = $(GOINFRE)/venvs/$(shell basename $(CURDIR))
@@ -31,6 +34,9 @@ ERROR_COLOR := \033[0;31m
 ERROR_BOLD  := \033[1;31m
 RESET       := \033[0m
 
+AUTHOR=andry-ha
+PROJECT_NAME=Call_Me_Maybe
+PROJECT_START_DATE=2026-08-19
 # Avoids conflicts if a file has the same name as a rule
 .PHONY: all install run debug clean lint lint-strict lock sync add
 
@@ -41,6 +47,16 @@ RESET       := \033[0m
 all: install lint
 
 install:
+	@echo "$(WARN_COLOR)╔════════════════════════════════════════════════════════════════╗"
+	@echo "$(WARN_COLOR)║                                                                ║"
+	@echo "$(WARN_COLOR)║  44  44    2222    $(GREEN)Made with ♥ by $(AUTHOR) $(WARN_COLOR)                    ║"
+	@echo "$(WARN_COLOR)║  44  44   22  22   Project: $(INFO_COLOR)$(PROJECT_NAME) $(WARN_COLOR)                     ║"
+	@echo "$(WARN_COLOR)║  444444      22    Started in: $(INFO_COLOR)$(PROJECT_START_DATE) $(WARN_COLOR)                     ║"
+	@echo "$(WARN_COLOR)║      44     22                                                 ║"
+	@echo "$(WARN_COLOR)║      44   222222                                               ║"
+	@echo "$(WARN_COLOR)║                                                                ║"
+	@echo "$(WARN_COLOR)╚════════════════════════════════════════════════════════════════╝"
+	@echo
 	@echo "$(INFO_BOLD)🔧 Configuring the development environment...$(RESET)"
 	@if [ ! -L $(VENV) ]; then \
 		rm -rf $(VENV); \
@@ -90,6 +106,10 @@ add:
 
 run:
 	@$(UV) run $(MAIN_SCRIPT)
+# 	@$(UV) run python -m src \
+# 		--functions_definition $(FUNCTIONS) \
+# 		--input $(INPUT) \
+# 		--output $(OUTPUT)
 
 debug:
 	@$(UV) run $(PYTHON) -m pdb $(MAIN_SCRIPT)
@@ -112,8 +132,8 @@ fclean: clean
 	rm -rf .python-version
 	rm -rf pyproject.toml
 	rm -rf uv.lock
-	rm -rf main.py
-	rm -rf src
+# 	rm -rf main.py
+# 	rm -rf src
 
 # ==============================================================================
 # lint - Code standards verification (Flake8 and Mypy)

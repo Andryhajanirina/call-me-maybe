@@ -10,6 +10,7 @@ class JSONState(Enum):
 
     EXPECT_VALUE_START = auto()
     VALUE_CONTENT = auto()
+    EXPECT_COMMA = auto()
     EXPECT_OBJECT_END = auto()
 
     DONE = auto()

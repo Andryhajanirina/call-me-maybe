@@ -52,9 +52,21 @@ def main() -> None:
     print(decoder.consume_token(":"))
     print(decoder.state)
 
-    print("space:", decoder.consume_char(" "))
-    print("tab:", decoder.consume_char("\t"))
-    print("newline:", decoder.consume_char("\n"))
+    print(decoder.consume_token('"'))
+    print(decoder.state)
+
+    print(decoder.consume_token("value"))
+    print(decoder.state)
+
+    print(decoder.consume_token('"'))
+    print(decoder.state)
+
+    print(decoder.consume_token(","))
+    print(decoder.state)
+
+    # print("space:", decoder.consume_char(" "))
+    # print("tab:", decoder.consume_char("\t"))
+    # print("newline:", decoder.consume_char("\n"))
 
 
 if __name__ == "__main__":

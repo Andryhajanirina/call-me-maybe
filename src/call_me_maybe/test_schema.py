@@ -1,11 +1,14 @@
 from llm_sdk import Small_LLM_Model
 from call_me_maybe.function_schema import FunctionSchema
 from call_me_maybe.token_constraints import TokenConstraints
+from call_me_maybe.parsing import parse_args
 
 
 def main() -> None:
     model = Small_LLM_Model()
-    schema = FunctionSchema("data/input/functions_definition.json")
+    args = parse_args()
+    # schema = FunctionSchema("data/input/functions_definition.json")
+    schema = FunctionSchema(args.functions_definition)
 
     constraints = TokenConstraints(model, schema)
 
