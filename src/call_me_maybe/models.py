@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# ########################################################################### #
+#   shebang: 1                                                                #
+#                                                          :::      ::::::::  #
+#   models.py                                            :+:      :+:    :+:  #
+#                                                      +:+ +:+         +:+    #
+#   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
+#                                                  +#+#+#+#+#+   +#+          #
+#   Created: 2026/08/19 11:42:22 by andry-ha            #+#    #+#            #
+#   Updated: 2026/09/09 11:42:36 by andry-ha           ###   ########.fr      #
+#                                                                             #
+# ########################################################################### #
+
 from typing import Literal
 
 from pydantic import BaseModel

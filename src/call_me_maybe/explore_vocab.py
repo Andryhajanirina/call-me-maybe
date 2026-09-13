@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# ########################################################################### #
+#   shebang: 1                                                                #
+#                                                          :::      ::::::::  #
+#   explore_vocab.py                                     :+:      :+:    :+:  #
+#                                                      +:+ +:+         +:+    #
+#   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
+#                                                  +#+#+#+#+#+   +#+          #
+#   Created: 2026/08/19 11:43:34 by andry-ha            #+#    #+#            #
+#   Updated: 2026/09/09 11:43:46 by andry-ha           ###   ########.fr      #
+#                                                                             #
+# ########################################################################### #
+
 import json
 
 from llm_sdk import Small_LLM_Model

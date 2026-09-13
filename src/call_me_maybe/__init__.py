@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# ########################################################################### #
+#   shebang: 1                                                                #
+#                                                          :::      ::::::::  #
+#   __init__.py                                          :+:      :+:    :+:  #
+#                                                      +:+ +:+         +:+    #
+#   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
+#                                                  +#+#+#+#+#+   +#+          #
+#   Created: 2026/08/19 11:44:03 by andry-ha            #+#    #+#            #
+#   Updated: 2026/09/09 11:44:18 by andry-ha           ###   ########.fr      #
+#                                                                             #
+# ########################################################################### #
+
 # from .main import main
 # from .explore_vocab import main
 # from .test_schema import main

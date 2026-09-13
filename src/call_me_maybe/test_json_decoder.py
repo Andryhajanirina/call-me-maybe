@@ -2,71 +2,93 @@ from call_me_maybe.json_decoder import JSONDecoder
 # from call_me_maybe.json_state import JSONState
 
 
-def main() -> None:
+def test_nested_object() -> None:
+    decoder = JSONDecoder()
+    # tokens = [
+    #     "{",
+    #     '"name"',
+    #     ":",
+    #     '"fn_add_numbers"',
+    #     ",",
+    #     '"parameters"',
+    #     ":",
+    #     "{",
+    #     '"a"',
+    #     ":",
+    #     '"number"',
+    #     ",",
+    #     '"b"',
+    #     ":",
+    #     '"number"',
+    #     "}",
+    #     "}"
+    # ]
+    tokens = [
+        "{",
+        '"a"',
+        ":",
+        "265",
+        ",",
+        '"b"',
+        ":",
+        "345",
+        "}",
+    ]
+    for token in tokens:
+        result = decoder.consume_token(token)
+        print(
+            f"{token!r:20} -> {result} -> {decoder.state}"
+        )
+        print("    stack:", decoder.object_stack)
+
+
+def test_json_with_spaces() -> None:
+    decoder = JSONDecoder()
+    tokens = [
+        "{",
+        '"a"',
+        ":",
+        " ",
+        "265",
+        ",",
+        " ",
+        '"b"',
+        ":",
+        " ",
+        "345",
+        " ",
+        "}",
+    ]
+
+    for token in tokens:
+        result = decoder.consume_token(token)
+        print(
+            f"{token!r:20} -> {result} -> {decoder.state}"
+        )
+        print("    stack:", decoder.object_stack)
+
+
+def test_whitespace() -> None:
     decoder = JSONDecoder()
 
-    # tests = [
-    #     "{",
-    #     '"',
-    #     "name",
-    #     '"',
-    #     ":",
-    #     '"',
-    #     "test",
-    #     '"',
-    #     "}",
-    # ]
+    whitespace_chars = [" ", "\t", "\n", "\r"]
 
-    # for token in tests:
-    #     valid = decoder.consume_token(token)
-    #     print(
-    #         f"Token {token!r:10} "
-    #         f"valid={valid:<5} "
-    #         f"state={decoder.state}"
-    #     )
+    for char in whitespace_chars:
+        print(
+            f"{char!r:5} -> "
+            f"{decoder.is_whitespace(char)}"
+            )
 
-    # text = '{"name":"fn_add_numbers"}'
 
-    # for char in text:
-    #     result = decoder.consume_char(char)
-    #     print(
-    #         repr(char),
-    #         result,
-    #         decoder.state,
-    #     )
+def main() -> None:
+    print("=== Test sans espaces ===")
+    test_nested_object()
 
-    # ===============TEST DE CONSUM TOKEN================
+    print("\n=== Test avec espaces ===")
+    test_json_with_spaces()
 
-    print(decoder.consume_token("{"))
-    print(decoder.state)
-
-    print(decoder.consume_token('"'))
-    print(decoder.state)
-
-    print(decoder.consume_token("name"))
-    print(decoder.state)
-
-    print(decoder.consume_token('"'))
-    print(decoder.state)
-
-    print(decoder.consume_token(":"))
-    print(decoder.state)
-
-    print(decoder.consume_token('"'))
-    print(decoder.state)
-
-    print(decoder.consume_token("value"))
-    print(decoder.state)
-
-    print(decoder.consume_token('"'))
-    print(decoder.state)
-
-    print(decoder.consume_token(","))
-    print(decoder.state)
-
-    # print("space:", decoder.consume_char(" "))
-    # print("tab:", decoder.consume_char("\t"))
-    # print("newline:", decoder.consume_char("\n"))
+    print("\n=== Test espaces ===")
+    test_whitespace()
 
 
 if __name__ == "__main__":

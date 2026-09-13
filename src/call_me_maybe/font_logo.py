@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# ########################################################################### #
+#   shebang: 1                                                                #
+#                                                          :::      ::::::::  #
+#   font_logo.py                                         :+:      :+:    :+:  #
+#                                                      +:+ +:+         +:+    #
+#   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
+#                                                  +#+#+#+#+#+   +#+          #
+#   Created: 2026/09/07 11:41:32 by andry-ha            #+#    #+#            #
+#   Updated: 2026/09/13 10:55:52 by andry-ha           ###   ########.fr      #
+#                                                                             #
+# ########################################################################### #
+
 import pyfiglet
 import subprocess
 
@@ -57,7 +70,7 @@ class LogoGenerator:
                             text2: str, couleur2: str,
                             font: str = 'standard',
                             margin_top: int = 0,
-                            width: int = 100) -> None:
+                            width: int = 50) -> None:
         """Displays logo composed of two text segments in different colors."""
 
         command = 'cls' if subprocess.os.name == 'nt' else 'clear'

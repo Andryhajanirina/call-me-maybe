@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# ########################################################################### #
+#   shebang: 1                                                                #
+#                                                          :::      ::::::::  #
+#   main.py                                              :+:      :+:    :+:  #
+#                                                      +:+ +:+         +:+    #
+#   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
+#                                                  +#+#+#+#+#+   +#+          #
+#   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
+#   Updated: 2026/09/09 11:43:15 by andry-ha           ###   ########.fr      #
+#                                                                             #
+# ########################################################################### #
+
 from llm_sdk import Small_LLM_Model  # type: ignore
 from .vocabulary import TokenVocabulary
 

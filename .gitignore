@@ -8,3 +8,11 @@ wheels/
 
 # Virtual environments
 .venv
+venv/
+venvs/
+
+# Old dir and file
+bkp*/
+bkp*.zip
+.pytest_cache/
+.mypy_cache/
