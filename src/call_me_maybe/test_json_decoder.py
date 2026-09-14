@@ -34,6 +34,7 @@ def test_nested_object() -> None:
         "345",
         "}",
     ]
+
     for token in tokens:
         result = decoder.consume_token(token)
         print(
@@ -80,6 +81,26 @@ def test_whitespace() -> None:
             )
 
 
+def test_invalid_number_with_space() -> None:
+    decoder = JSONDecoder()
+    tokens = [
+        "{",
+        '"a"',
+        ":",
+        "26",
+        " ",
+        "5",
+        "}",
+    ]
+
+    for token in tokens:
+        result = decoder.consume_token(token)
+        print(
+            f"{token!r:20} -> {result} -> {decoder.state}"
+        )
+        print("    stack:", decoder.object_stack)
+
+
 def main() -> None:
     print("=== Test sans espaces ===")
     test_nested_object()
@@ -89,6 +110,9 @@ def main() -> None:
 
     print("\n=== Test espaces ===")
     test_whitespace()
+
+    print("\n=== Test nombre invalide avec espace ===")
+    test_invalid_number_with_space()
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ VENV          = .venv
 UV            = uv
 PYTHON       = $(VENV)/bin/python
 
-HF_HOME               = $(GOINFRE)/.cache/huggingface
+HF_HOME               = $(GOINFRE)/$(CACHE)/huggingface
 UV_CACHE_DIR          = $(GOINFRE_CACHE)
 UV_PYTHON_PREFERENCE  = managed
 

@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:40:38 by andry-ha            #+#    #+#            #
-#   Updated: 2026/09/13 11:10:51 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/09/14 15:03:03 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -26,7 +26,13 @@ class JSONDecoder:
         Returns True if the character is valid for the current state.
         """
 
+        if self.state in (JSONState.ERROR, JSONState.DONE):
+            return False
+
         if self.is_whitespace(char):
+            if self.state == JSONState.VALUE_NUMBER:
+                self.state = JSONState.ERROR
+                return False
             return True
 
         if self.state == JSONState.START:
@@ -133,8 +139,9 @@ class JSONDecoder:
 
         for char in token:
             if not self.consume_char(char):
-                self.state = original_state
-                self.object_stack = original_stack
+                if self.state != JSONState.ERROR:
+                    self.state = original_state
+                    self.object_stack = original_stack
                 return False
 
         return True
