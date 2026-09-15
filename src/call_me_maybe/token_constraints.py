@@ -1,6 +1,8 @@
 from llm_sdk import Small_LLM_Model
 
 from .function_schema import FunctionSchema
+from .json_decoder import JSONDecoder
+from .json_context import JSONContext
 
 
 class TokenConstraints:
@@ -11,6 +13,8 @@ class TokenConstraints:
     ) -> None:
         self.model = model
         self.schema = schema
+        self.decoder = JSONDecoder()
+        self.context = JSONContext()
 
     def encode_function_names(self) -> dict[str, list[int]]:
         result: dict[str, list[int]] = {}
@@ -70,3 +74,7 @@ class TokenConstraints:
             if token_ids == generated_tokens:
                 return True
         return False
+
+    def process_token_text(self, token_text: str) -> None:
+        for char in token_text:
+            print(repr(char))

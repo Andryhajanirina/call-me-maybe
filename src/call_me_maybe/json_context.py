@@ -2,29 +2,25 @@
 # ########################################################################### #
 #   shebang: 1                                                                #
 #                                                          :::      ::::::::  #
-#   __init__.py                                          :+:      :+:    :+:  #
+#   json_context.py                                      :+:      :+:    :+:  #
 #                                                      +:+ +:+         +:+    #
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
-#   Created: 2026/08/19 11:44:03 by andry-ha            #+#    #+#            #
-#   Updated: 2026/09/15 16:20:50 by andry-ha           ###   ########.fr      #
+#   Created: 2026/09/15 14:36:22 by andry-ha            #+#    #+#            #
+#   Updated: 2026/09/15 15:02:00 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
-# from .main import main
-# from .explore_vocab import main
-# from .test_schema import main
 
-from .font_logo import LogoGenerator
-from .test_token_constraints import main
-# from .test_json_context import main
-# from .test_json_decoder import main
+class JSONContext:
+    def __init__(self) -> None:
+        self.current_key = ""
 
+    def start_key(self) -> None:
+        self.current_key = ""
 
-LogoGenerator.print_two_tone_logo(
-    text1="Call me", couleur1="yellow",
-    text2=" Maybe", couleur2="cyan",
-    font="slant",
-    margin_top=0
-)
-__all__ = ["main"]
+    def add_key_character(self, char: str) -> None:
+        self.current_key += char
+
+    def finish_key(self) -> str:
+        return self.current_key
