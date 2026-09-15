@@ -101,18 +101,216 @@ def test_invalid_number_with_space() -> None:
         print("    stack:", decoder.object_stack)
 
 
+def test_partial_invalid_token() -> None:
+    decoder = JSONDecoder()
+    tokens = [
+        "{",
+        '"a"',
+        ":",
+    ]
+
+    for token in tokens:
+        assert decoder.consume_token(token) is True
+
+    print("Before invalid token:", decoder.state, decoder.object_stack)
+
+    result = decoder.consume_token("26 5")
+
+    print("Result:", result)
+    print("After invalid token:", decoder.state, decoder.object_stack)
+
+
+def test_after_done() -> None:
+    decoder = JSONDecoder()
+
+    tokens = [
+        "{",
+        '"a"',
+        ":",
+        "265",
+        "}",
+    ]
+
+    for token in tokens:
+        assert decoder.consume_token(token) is True
+
+    print("State after valid JSON:", decoder.state)
+
+    result = decoder.consume_token(" ")
+    print("Token after DONE:", result)
+    print("State after attempt:", decoder.state)
+
+
+def test_spaces_after_string() -> None:
+    decoder = JSONDecoder()
+    tokens = [
+        "{",
+        '"name"',
+        ":",
+        '"andry"',
+        " ",
+        "}",
+    ]
+
+    for token in tokens:
+        result = decoder.consume_token(token)
+        print(
+            f"{token!r:20} -> {result} -> {decoder.state}"
+        )
+        print("    stack:", decoder.object_stack)
+
+
+def test_multi_character_token() -> None:
+    decoder = JSONDecoder()
+
+    tokens = [
+        "{",
+        '"a"',
+        ":",
+        "345",
+        " }",
+    ]
+
+    for token in tokens:
+        result = decoder.consume_token(token)
+        print(
+            f"{token!r:20} -> {result} -> {decoder.state}"
+        )
+        print("    stack:", decoder.object_stack)
+
+
+def test_number_followed_by_space() -> None:
+    decoder = JSONDecoder()
+
+    tokens = [
+        "{",
+        '"a"',
+        ":",
+        "345",
+        " ",
+        "}",
+    ]
+
+    for token in tokens:
+        result = decoder.consume_token(token)
+        print(
+            f"{token!r:20} -> {result} -> {decoder.state}"
+        )
+
+
+def test_number_followed_by_comma() -> None:
+    decoder = JSONDecoder()
+
+    tokens = [
+        "{",
+        '"a"',
+        ":",
+        "345",
+        " ",
+        ",",
+        '"b"',
+        ":",
+        "10",
+        "}",
+    ]
+
+    for token in tokens:
+        result = decoder.consume_token(token)
+        print(
+            f"{token!r:20} -> {result} -> {decoder.state}"
+        )
+
+
+def test_invalid_number_space_digit() -> None:
+    decoder = JSONDecoder()
+
+    tokens = [
+        "{",
+        '"a"',
+        ":",
+        "345",
+        " ",
+        "6",
+    ]
+
+    for token in tokens:
+        result = decoder.consume_token(token)
+        print(
+            f"{token!r:20} -> {result} -> {decoder.state}"
+        )
+
+
 def main() -> None:
-    print("=== Test sans espaces ===")
-    test_nested_object()
+    # print("=== Test sans espaces ===")
+    # test_nested_object()
 
-    print("\n=== Test avec espaces ===")
-    test_json_with_spaces()
+    # print("\n=== Test avec espaces ===")
+    # test_json_with_spaces()
 
-    print("\n=== Test espaces ===")
-    test_whitespace()
+    # print("\n=== Test espaces ===")
+    # test_whitespace()
 
-    print("\n=== Test nombre invalide avec espace ===")
-    test_invalid_number_with_space()
+    # print("\n=== Test nombre invalide avec espace ===")
+    # test_invalid_number_with_space()
+
+    # print("\n=== Test token partiellement invalide ===")
+    # test_partial_invalid_token()
+
+    # print("\n=== Test après DONE ===")
+    # test_after_done()
+
+    # print("\n=== Test espaces après une chaîne ===")
+    # test_spaces_after_string()
+
+    # print("\n=== Test token multi-caractères ===")
+    # test_multi_character_token()
+
+    # # ==========================
+    # print("\n=== Test number followed by space or comma, invalid number ===")
+    # test_number_followed_by_space()
+    # test_number_followed_by_comma()
+    # test_invalid_number_space_digit()
+
+    # tests = [
+    #     ['{', '"a"', ':', '265', '}'],
+    #     ['{', '"a"', ' ', ':', '265', '}'],
+    #     ['{', '"a"', ':', ' ', '265', '}'],
+    #     ['{', '"a"', ' ', ':', ' ', '265', '}'],
+    # ]
+
+    # for tokens in tests:
+    #     decoder = JSONDecoder()
+    #     for token in tokens:
+    #         result = decoder.consume_token(token)
+    #         print(
+    #             repr(token),
+    #             "->",
+    #             result,
+    #             "->",
+    #             decoder.state,
+    #             "stack:",
+    #             decoder.object_stack,
+    #         )
+
+    tokens = [
+        '{', '"a"', ':', '0',
+        ',', '"b"', ':', '5',
+        '}'
+    ]
+
+    decoder = JSONDecoder()
+
+    for token in tokens:
+        result = decoder.consume_token(token)
+        print(
+            repr(token),
+            "->",
+            result,
+            "->",
+            decoder.state,
+            "stack:",
+            decoder.object_stack,
+        )
 
 
 if __name__ == "__main__":
