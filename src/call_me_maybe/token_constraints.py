@@ -3,6 +3,7 @@ from llm_sdk import Small_LLM_Model
 from .function_schema import FunctionSchema
 from .json_decoder import JSONDecoder
 from .json_context import JSONContext
+from .json_state import JSONState
 
 
 class TokenConstraints:
@@ -75,6 +76,37 @@ class TokenConstraints:
                 return True
         return False
 
+    # def process_token_text(self, token_text: str) -> None:
+    #     for char in token_text:
+    #         print(repr(char))
     def process_token_text(self, token_text: str) -> None:
         for char in token_text:
-            print(repr(char))
+            previous_state = self.decoder.state
+
+            valid = self.decoder.consume_char(char)
+
+            if not valid:
+                print(repr(char), "-> invalid")
+                continue
+
+            if previous_state in (
+                JSONState.EXPECT_KEY_OR_END,
+                JSONState.EXPECT_KEY_START,
+            ) and char == '"':
+                self.context.start_key()
+
+            elif previous_state == JSONState.KEY_CONTENT:
+                if char == '"':
+                    print(
+                        "Completed key:",
+                        self.context.finish_key(),
+                    )
+                else:
+                    self.context.add_key_character(char)
+
+            print(
+                repr(char),
+                "->",
+                valid,
+                self.decoder.state,
+            )
