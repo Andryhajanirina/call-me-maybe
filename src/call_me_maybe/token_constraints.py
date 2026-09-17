@@ -85,6 +85,14 @@ class TokenConstraints:
         for name, token_ids in encoded.items():
             if token_ids == generated_tokens:
                 return name
+        return None
+
+    def update_current_function(
+        self,
+        generated_tokens: list[int],
+    ) -> None:
+        name = self.get_function_name_from_tokens(generated_tokens)
+        print(name)
 
     def process_token_text(self, token_text: str) -> None:
         for char in token_text:

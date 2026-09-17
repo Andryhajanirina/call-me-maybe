@@ -11,9 +11,20 @@ def main() -> None:
         "data/input/functions_definition.json"
     )
     constraints = TokenConstraints(model, schema)
+    print("Fonction actuelle :", constraints.current_function)
+    print(
+        constraints.get_function_name_from_tokens(
+            [8822, 1889, 3744]
+        )
+    )
+
+    print(
+        constraints.get_function_name_from_tokens(
+            [999]
+        )
+    )
 
     print("Test process_token_text:")
-    # constraints.process_token_text("age")
     constraints.process_token_text('{"age":25}')
 
     print("\nTest JSONDecoder avec des tokens:")
