@@ -16,6 +16,7 @@ class TokenConstraints:
         self.schema = schema
         self.decoder = JSONDecoder()
         self.context = JSONContext()
+        self.current_function = None
 
     def encode_function_names(self) -> dict[str, list[int]]:
         result: dict[str, list[int]] = {}
@@ -76,9 +77,15 @@ class TokenConstraints:
                 return True
         return False
 
-    # def process_token_text(self, token_text: str) -> None:
-    #     for char in token_text:
-    #         print(repr(char))
+    def get_function_name_from_tokens(
+        self,
+        generated_tokens: list[int],
+    ) -> str | None:
+        encoded = self.encode_function_names()
+        for name, token_ids in encoded.items():
+            if token_ids == generated_tokens:
+                return name
+
     def process_token_text(self, token_text: str) -> None:
         for char in token_text:
             previous_state = self.decoder.state
