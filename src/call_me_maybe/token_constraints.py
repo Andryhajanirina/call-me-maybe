@@ -92,7 +92,8 @@ class TokenConstraints:
         generated_tokens: list[int],
     ) -> None:
         name = self.get_function_name_from_tokens(generated_tokens)
-        print(name)
+        if name is not None:
+            self.current_function = name
 
     def process_token_text(self, token_text: str) -> None:
         for char in token_text:
@@ -125,3 +126,11 @@ class TokenConstraints:
                 valid,
                 self.decoder.state,
             )
+
+    def process_token(
+        self,
+        token_id: int,
+        token_text: str,
+        generated_tokens: list[int],
+    ) -> None:
+        self.process_token_text(token_text)

@@ -12,6 +12,13 @@ def main() -> None:
     )
     constraints = TokenConstraints(model, schema)
     print("Fonction actuelle :", constraints.current_function)
+
+    constraints.update_current_function(
+        [8822, 1889, 3744]
+    )
+
+    print("Fonction actuelle :", constraints.current_function)
+
     print(
         constraints.get_function_name_from_tokens(
             [8822, 1889, 3744]
