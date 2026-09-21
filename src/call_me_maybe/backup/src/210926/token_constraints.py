@@ -17,8 +17,7 @@ class TokenConstraints:
         self.decoder = JSONDecoder()
         self.context = JSONContext()
         self.current_function = None
-        self.function_name_tokens: list[int] = []
-        self.reading_function_name = False
+        self.current_parameter = None
 
     def encode_function_names(self) -> dict[str, list[int]]:
         result: dict[str, list[int]] = {}
@@ -70,6 +69,32 @@ class TokenConstraints:
 
         return allowed
 
+    # Create on 13:14 on 21/09/2026
+    def get_allowed_value_start_tokens(self) -> set[int]:
+        parameter_type = self.get_current_parameter_type()
+
+        if parameter_type == "string":
+            return {1}
+        if parameter_type == "number":
+            return self.get_allowed_number_start_tokens()
+        return set()
+
+    # Create on 13:30 on 21/09/2026
+    def get_allowed_number_start_tokens(self) -> set[int]:
+        return {
+            12,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+        }
+
     def is_complete_function_name(
         self,
         generated_tokens: list[int],
@@ -89,6 +114,14 @@ class TokenConstraints:
                 return name
         return None
 
+    # Create on 10:36 on 21/09/2026
+    def update_current_function_from_key(
+        self,
+        key: str,
+    ) -> None:
+        if key in self.schema.get_function_names():
+            self.current_function = key
+
     def update_current_function(
         self,
         generated_tokens: list[int],
@@ -96,6 +129,45 @@ class TokenConstraints:
         name = self.get_function_name_from_tokens(generated_tokens)
         if name is not None:
             self.current_function = name
+
+    # Create on 10:36 on 21/09/2026
+    def update_current_parameter(
+        self,
+        key: str,
+    ) -> None:
+        function = self.schema.get_function(
+            self.current_function
+        )
+
+        if function is None:
+            return
+
+        if key in function.parameters:
+            self.current_parameter = key
+
+    # Create on 11:36 on 21/09/2026
+    def get_current_parameter_type(self) -> str | None:
+        if self.current_function is None:
+            return None
+
+        if self.current_parameter is None:
+            return None
+
+        function = self.schema.get_function(
+            self.current_function
+        )
+
+        if function is None:
+            return None
+
+        parameter = function.parameters.get(
+            self.current_parameter
+        )
+
+        if parameter is None:
+            return None
+
+        return parameter.type
 
     def process_token_text(self, token_text: str) -> None:
         for char in token_text:
@@ -115,10 +187,12 @@ class TokenConstraints:
 
             elif previous_state == JSONState.KEY_CONTENT:
                 if char == '"':
-                    print(
-                        "Completed key:",
-                        self.context.finish_key(),
-                    )
+                    key = self.context.finish_key()
+                    print("Completed key:", key)
+                    if self.current_function is None:
+                        self.update_current_function_from_key(key)
+                    else:
+                        self.update_current_parameter(key)
                 else:
                     self.context.add_key_character(char)
 
@@ -135,12 +209,5 @@ class TokenConstraints:
         generated_tokens: list[int],
     ) -> None:
         token_text = self.model.decode([token_id])
-
-        if self.decoder.state in (
-            JSONState.EXPECT_KEY_OR_END,
-            JSONState.EXPECT_KEY_START,
-        ):
-            self.function_name_tokens.append(token_id)
-
         self.process_token_text(token_text)
-        self.update_current_function(generated_tokens)
+        # self.update_current_function(generated_tokens)
