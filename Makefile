@@ -103,6 +103,30 @@ add:
 %:
 	@:
 
+add-dev:
+	@$(eval PKGS := $(filter-out $@,$(MAKECMDGOALS)))
+	@if [ -z "$(PKGS)" ]; then \
+		echo "$(ERROR_BOLD)❌ Error:$(RESET) $(ERROR_COLOR)Specify at least one package.$(RESET)"; \
+		echo "   Exemple: make add mypy flake8"; \
+		exit 1; \
+	fi
+	$(UV) add --dev $(PKGS)
+
+# Allows make to accept package names after "add"
+%:
+	@:
+
+remove:
+	@$(eval PKGS := $(filter-out $@,$(MAKECMDGOALS)))
+	@if [ -z "$(PKGS)" ]; then \
+		echo "$(ERROR_BOLD)❌ Error:$(RESET) $(ERROR_COLOR)Specify at least one package.$(RESET)"; \
+		echo "   Exemple: make add mypy flake8"; \
+		exit 1; \
+	fi
+	$(UV) remove $(PKGS)
+
+%:
+	@:
 
 run:
 	@$(UV) run $(MAIN_SCRIPT)
@@ -113,7 +137,13 @@ run:
 
 debug:
 	@$(UV) run $(PYTHON) -m pdb $(MAIN_SCRIPT)
+# 	@$(UV) run $(PYTHON) -m pdb -m src \
+# 		--functions_definition $(FUNCTIONS) \
+# 		--input $(INPUT) \
+# 		--output $(OUTPUT)
 
+test:
+	@$(UV) run pytest src/call_me_maybe/test_json_context.py src/call_me_maybe/test_schema.py src/call_me_maybe/test_token_constraints.py
 # ==============================================================================
 # CLEAN - Complete clearing of caches and temporary files
 # ==============================================================================
@@ -130,7 +160,7 @@ fclean: clean
 	rm -rf $(VENV)
 	rm -rf $(GOINFRE)/venvs
 	rm -rf .python-version
-	rm -rf pyproject.toml
+# 	rm -rf pyproject.toml
 	rm -rf uv.lock
 # 	rm -rf main.py
 # 	rm -rf src
@@ -142,9 +172,9 @@ lint:
 	@if [ ! -f $(VENV)/bin/flake8 ]; then echo "$(ERROR_BOLD)❌ ERROR:$(RESET) $(ERROR_COLOR)Run 'make install' first.$(RESET)"; exit 1; fi
 	@echo "$(INFO_BOLD)🔍 [Flake8] Standard coding verification...$(RESET)"
 # 	$(VENV)/bin/flake8 . --exclude=$(VENV)
-	$(VENV)/bin/flake8 .
+	$(VENV)/bin/flake8 src --exclude=src/call_me_maybe/backup
 	@echo "$(INFO_BOLD)🔍 [Mypy] Static type analysis (Standard mode)...$(RESET)"
-	$(VENV)/bin/mypy . $(MYPY_FLAGS)
+	$(VENV)/bin/mypy src $(MYPY_FLAGS)
 
 # ==============================================================================
 # lint-strict - Enhanced verification method with (Flake8 and Mypy --strict)
@@ -153,6 +183,6 @@ lint-strict:
 	@if [ ! -f $(VENV)/bin/flake8 ]; then echo "$(ERROR_BOLD)❌ ERROR:$(RESET) $(ERROR_COLOR)Run 'make install' first.$(RESET)"; exit 1; fi
 	@echo "$(INFO_BOLD)🔍 [Flake8] Standard coding verification...$(RESET)"
 # 	$(VENV)/bin/flake8 . --exclude=$(VENV)
-	$(VENV)/bin/flake8 .
+	$(VENV)/bin/flake8 src --exclude=src/call_me_maybe/backup
 	@echo "$(INFO_BOLD)🔍 [Mypy] Static type analysis (Strict mode)...$(RESET)"
-	$(VENV)/bin/mypy . --strict $(MYPY_FLAGS)
+	$(VENV)/bin/mypy src --strict $(MYPY_FLAGS)

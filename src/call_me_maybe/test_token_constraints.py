@@ -24,7 +24,17 @@ def main() -> None:
     # =============================
     generated_tokens = []
 
-    for token_id in [8822, 1889, 3744]:
+    # token_ids = [90, 1, 8822, 1889, 3744, 1]
+    # token_ids = [1, 8822, 57507, 1]
+    token_ids = [90, 1, 8822, 57507, 1]
+
+    # for token_id in token_ids:
+    for token_id in [
+        90,          # {
+        1, 8822, 1889, 3744, 1,  # "fn_greet"
+        25,          # :
+        1, 56693, 1,   # "a"
+    ]:
         generated_tokens.append(token_id)
 
         constraints.process_token(
@@ -37,7 +47,10 @@ def main() -> None:
             generated_tokens,
             "| Fonction :",
             constraints.current_function,
+            "| Nom tokens :",
+            constraints.function_name_tokens,
         )
+
     # ============================
 
     # print("Fonction actuelle :", constraints.current_function)

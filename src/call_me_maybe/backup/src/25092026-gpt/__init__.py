@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:44:03 by andry-ha            #+#    #+#            #
-#   Updated: 2026/09/21 14:15:36 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/09/23 14:32:50 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -16,9 +16,9 @@ from .font_logo import LogoGenerator
 # from .explore_vocab import main
 # from .test_schema import main
 
-# from .test_token_constraints import main
+from .test_token_constraints import main
 # from .test_json_context import main
-from .test_json_decoder import main
+# from .test_json_decoder import main
 
 
 LogoGenerator.print_two_tone_logo(

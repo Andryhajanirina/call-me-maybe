@@ -12,6 +12,12 @@ class TokenConstraints:
         model: Small_LLM_Model,
         schema: FunctionSchema,
     ) -> None:
+        """Initialize token constraints processor.
+
+        Args:
+            model: Instance of Small_LLM_Model SDK.
+            schema: Parsed function schemas available for calling.
+        """
         self.model = model
         self.schema = schema
         self.decoder = JSONDecoder()
@@ -21,6 +27,11 @@ class TokenConstraints:
         self.reading_function_name = False
 
     def encode_function_names(self) -> dict[str, list[int]]:
+        """Encode all available function names into token ID lists.
+
+        Returns:
+            Dictionary mapping function name to list of token IDs.
+        """
         result: dict[str, list[int]] = {}
 
         for name in self.schema.get_function_names():
@@ -45,8 +56,15 @@ class TokenConstraints:
         logits: list[float],
         allowed_token_ids: set[int],
     ) -> list[float]:
-        """
-        Keep only allowed tokens and disable all others.
+        """Set logits of disallowed tokens to negative infinity.
+
+        Args:
+            logits: Original probability scores from LLM model.
+            allowed_token_ids: Set of token IDs that preserve valid
+                syntax/schema.
+
+        Returns:
+            Modified logits array.
         """
         constrained = [float("-inf")] * len(logits)
 
@@ -112,6 +130,8 @@ class TokenConstraints:
                 JSONState.EXPECT_KEY_START,
             ) and char == '"':
                 self.context.start_key()
+                self.function_name_tokens = []
+                self.reading_function_name = False
 
             elif previous_state == JSONState.KEY_CONTENT:
                 if char == '"':
@@ -136,11 +156,15 @@ class TokenConstraints:
     ) -> None:
         token_text = self.model.decode([token_id])
 
-        if self.decoder.state in (
-            JSONState.EXPECT_KEY_OR_END,
-            JSONState.EXPECT_KEY_START,
-        ):
-            self.function_name_tokens.append(token_id)
-
         self.process_token_text(token_text)
-        self.update_current_function(generated_tokens)
+
+        if self.decoder.state == JSONState.KEY_CONTENT:
+            self.reading_function_name = True
+
+        if self.reading_function_name:
+            if token_text == '"':
+                self.reading_function_name = False
+            else:
+                self.function_name_tokens.append(token_id)
+
+        self.update_current_function(self.function_name_tokens)

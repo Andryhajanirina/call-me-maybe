@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:40:38 by andry-ha            #+#    #+#            #
-#   Updated: 2026/09/21 14:28:21 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/09/15 12:20:22 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -208,76 +208,6 @@ class JSONDecoder:
                     self.state = JSONState.EXPECT_COMMA
                 return True
         return False
-
-    def get_allowed_number_characters(self) -> set[str]:
-        if self.state == JSONState.EXPECT_VALUE_START:
-            return {
-                "-",
-                "0",
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-                "6",
-                "7",
-                "8",
-                "9",
-            }
-
-        if self.state == JSONState.EXPECT_NUMBER_DIGIT:
-            return {
-                "0",
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-                "6",
-                "7",
-                "8",
-                "9",
-            }
-
-        if self.state == JSONState.EXPECT_ZERO_END:
-            return {
-                ".",
-                ",",
-                "}",
-            }
-
-        if self.state == JSONState.VALUE_NUMBER:
-            return {
-                "0",
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-                "6",
-                "7",
-                "8",
-                "9",
-                ".",
-                ",",
-                "}",
-            }
-
-        if self.state == JSONState.EXPECT_FRACTION_DIGIT:
-            return {
-                "0",
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-                "6",
-                "7",
-                "8",
-                "9",
-            }
-
-        return set()
 
     def consume_token(self, token: str) -> bool:
         """
