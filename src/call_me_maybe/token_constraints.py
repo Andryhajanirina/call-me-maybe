@@ -25,6 +25,7 @@ class TokenConstraints:
         self.current_function = None
         self.function_name_tokens: list[int] = []
         self.reading_function_name = False
+        self.function_name_read = False
 
     def encode_function_names(self) -> dict[str, list[int]]:
         """Encode all available function names into token ID lists.

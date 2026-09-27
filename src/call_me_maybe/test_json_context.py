@@ -35,24 +35,34 @@ def main() -> None:
     #     # )
     # print(token_id, repr(context.finish_key()))
 
-    key = "age"
+    # key = "age"
+
+    # context.start_key()
+    # for char in key:
+    #     context.add_key_character(char)
+
+    # assert context.finish_key() == "age"
+    # print("JSONContext test: OK")
 
     context.start_key()
-    for char in key:
-        context.add_key_character(char)
 
-    assert context.finish_key() == "age"
-    print("JSONContext test: OK")
-
-    context.start_key()
-
-    key = "name"
-
-    for char in key:
+    for char in "name":
         context.add_key_character(char)
 
     assert context.finish_key() == "name"
 
+    print("Key:", context.finish_key())
+
+    key_name = context.finish_key()
+    context.start_key()
+    for char in "parameters":
+        context.add_key_character(char)
+
+    assert context.finish_key() == "parameters"
+
+    print("Key:", context.finish_key())
+    key_parameter = context.finish_key()
+    print(f"key_name : {key_name}, key_parameter: {key_parameter}")
     print("JSONContext test: OK")
 
 

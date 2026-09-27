@@ -2,7 +2,7 @@ from llm_sdk import Small_LLM_Model
 
 from call_me_maybe.function_schema import FunctionSchema
 from call_me_maybe.token_constraints import TokenConstraints
-from call_me_maybe.json_decoder import JSONDecoder
+# from call_me_maybe.json_decoder import JSONDecoder
 
 
 def main() -> None:
@@ -26,7 +26,7 @@ def main() -> None:
 
     # token_ids = [90, 1, 8822, 1889, 3744, 1]
     # token_ids = [1, 8822, 57507, 1]
-    token_ids = [90, 1, 8822, 57507, 1]
+    # token_ids = [90, 1, 8822, 57507, 1]
 
     # for token_id in token_ids:
     for token_id in [
