@@ -28,12 +28,16 @@ def main() -> None:
     # token_ids = [1, 8822, 57507, 1]
     # token_ids = [90, 1, 8822, 57507, 1]
 
-    # for token_id in token_ids:
+    print(
+        '"name" :',
+        model.encode('"name"').squeeze(0).tolist(),
+    )
+    print("===========")
     for token_id in [
-        90,          # {
-        1, 8822, 1889, 3744, 1,  # "fn_greet"
-        25,          # :
-        1, 56693, 1,   # "a"
+        90,                         # {
+        31486, 1,               # "name"
+        25,                         # :
+        1, 8822, 1889, 3744, 1,     # "fn_greet"
     ]:
         generated_tokens.append(token_id)
 
@@ -49,6 +53,8 @@ def main() -> None:
             constraints.current_function,
             "| Nom tokens :",
             constraints.function_name_tokens,
+            "| Clé :",
+            constraints.current_key,
         )
 
     # ============================

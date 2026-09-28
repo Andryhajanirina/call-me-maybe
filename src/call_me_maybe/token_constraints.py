@@ -26,6 +26,7 @@ class TokenConstraints:
         self.function_name_tokens: list[int] = []
         self.reading_function_name = False
         self.function_name_read = False
+        self.current_key = ""
 
     def encode_function_names(self) -> dict[str, list[int]]:
         """Encode all available function names into token ID lists.
@@ -136,9 +137,10 @@ class TokenConstraints:
 
             elif previous_state == JSONState.KEY_CONTENT:
                 if char == '"':
+                    self.current_key = self.context.finish_key()
                     print(
                         "Completed key:",
-                        self.context.finish_key(),
+                        self.current_key
                     )
                 else:
                     self.context.add_key_character(char)
@@ -159,7 +161,10 @@ class TokenConstraints:
 
         self.process_token_text(token_text)
 
-        if self.decoder.state == JSONState.KEY_CONTENT:
+        if (
+            self.current_key == "name"
+            and self.decoder.state == JSONState.VALUE_CONTENT
+        ):
             self.reading_function_name = True
 
         if self.reading_function_name:

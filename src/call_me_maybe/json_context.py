@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/09/15 14:36:22 by andry-ha            #+#    #+#            #
-#   Updated: 2026/09/16 15:38:32 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/09/27 15:11:09 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -24,3 +24,9 @@ class JSONContext:
 
     def finish_key(self) -> str:
         return self.current_key
+
+    def is_key(self, key: str) -> bool:
+        return self.current_key == key
+
+    def is_function_name_key(self) -> bool:
+        return self.current_key == "name"

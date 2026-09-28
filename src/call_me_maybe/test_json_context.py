@@ -53,17 +53,12 @@ def main() -> None:
 
     print("Key:", context.finish_key())
 
-    key_name = context.finish_key()
-    context.start_key()
-    for char in "parameters":
-        context.add_key_character(char)
-
-    assert context.finish_key() == "parameters"
-
-    print("Key:", context.finish_key())
-    key_parameter = context.finish_key()
-    print(f"key_name : {key_name}, key_parameter: {key_parameter}")
-    print("JSONContext test: OK")
+    print("Is name:", context.is_key("name"))
+    print("Is parameters:", context.is_key("parameters"))
+    print(
+        "Is function name:",
+        context.is_function_name_key(),
+    )
 
 
 if __name__ == "__main__":
