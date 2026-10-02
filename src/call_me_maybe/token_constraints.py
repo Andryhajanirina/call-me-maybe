@@ -25,8 +25,10 @@ class TokenConstraints:
         self.current_function = None
         self.function_name_tokens: list[int] = []
         self.reading_function_name = False
-        self.function_name_read = False
+        # self.function_name_read = False
         self.current_key = ""
+        self.current_parameter = None
+        self.reading_parameters = False
 
     def encode_function_names(self) -> dict[str, list[int]]:
         """Encode all available function names into token ID lists.
@@ -117,6 +119,18 @@ class TokenConstraints:
         if name is not None:
             self.current_function = name
 
+    def get_current_parameter_type(self) -> str | None:
+        function = self.schema.get_function(
+            self.current_function
+        )
+        parameter = function.parameters[
+            self.current_parameter
+        ]
+        print("Current function:", function.name)
+        print("Current parameter:", self.current_parameter)
+        print("Type parameter:", parameter.type)
+        return parameter.type
+
     def process_token_text(self, token_text: str) -> None:
         for char in token_text:
             previous_state = self.decoder.state
@@ -138,6 +152,13 @@ class TokenConstraints:
             elif previous_state == JSONState.KEY_CONTENT:
                 if char == '"':
                     self.current_key = self.context.finish_key()
+
+                    if self.current_key == "parameters":
+                        self.reading_parameters = True
+
+                    elif self.reading_parameters:
+                        self.current_parameter = self.current_key
+
                     print(
                         "Completed key:",
                         self.current_key
@@ -174,3 +195,24 @@ class TokenConstraints:
                 self.function_name_tokens.append(token_id)
 
         self.update_current_function(self.function_name_tokens)
+
+    def get_allowed_value_tokens(self) -> set[int]:
+        parameter_type = self.get_current_parameter_type()
+
+        if parameter_type == "string":
+            if self.decoder.state == JSONState.EXPECT_VALUE_START:
+                return {1}
+
+            if self.decoder.state == JSONState.VALUE_CONTENT:
+                return set(range(len(self.model.decode([0]))))
+
+        if parameter_type == "number":
+            allowed = {12}
+
+            for digit in "0123456789":
+                token_ids = self.model.encode(digit).squeeze(0).tolist()
+                allowed.add(token_ids[0])
+
+            return allowed
+
+        return set()
