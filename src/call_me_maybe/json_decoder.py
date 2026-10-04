@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:40:38 by andry-ha            #+#    #+#            #
-#   Updated: 2026/09/28 09:57:08 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/04 10:16:33 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -206,6 +206,9 @@ class JSONDecoder:
                 self.state = original_state
                 self.object_stack = original_stack
                 return False
+
+        self.state = original_state
+        self.object_stack = original_stack
 
         return True
 

@@ -3,19 +3,43 @@ from llm_sdk import Small_LLM_Model
 
 from call_me_maybe.function_schema import FunctionSchema
 from call_me_maybe.token_constraints import TokenConstraints
-# from call_me_maybe.json_decoder import JSONDecoder
+from call_me_maybe.json_decoder import JSONDecoder
+from call_me_maybe.json_state import JSONState
 
 
 def main() -> None:
     model = Small_LLM_Model()
-    # vocab_path = model.get_path_to_vocab_file()
+    vocab_path = model.get_path_to_vocab_file()
 
-    # with open(vocab_path, "r", encoding="utf-8") as file:
-    #     vocab = json.load(file)
+    with open(vocab_path, "r", encoding="utf-8") as file:
+        vocab = json.load(file)
 
-    # print("Vocabulary type:", type(vocab))
-    # print("Vocab size:", len(vocab))
-    # # print("Vocab size:", len(model.vocab))
+    print("Vocab size:", len(vocab))
+    for token_id in [1, 45916, 884, 17, 90, 92]:
+        token_text = model.decode([token_id])
+        print(token_id, repr(token_text))
+
+    decoder = JSONDecoder()
+
+    tests = [1, 45916]
+
+    for token_id in tests:
+        token_text = model.decode([token_id])
+
+        decoder.state = JSONState.EXPECT_VALUE_START
+        decoder.object_stack = ["object"]
+
+        valid = decoder.consume_token(token_text)
+        print("State après :", decoder.state)
+
+        print(
+            token_id,
+            repr(token_text),
+            "->",
+            valid,
+            decoder.state,
+        )
+    # ======================================
 
     schema = FunctionSchema(
         "data/input/functions_definition.json"
@@ -33,10 +57,6 @@ def main() -> None:
     # print("Fonction actuelle :", constraints.current_function)
     # =============================
     generated_tokens = []
-
-    # token_ids = [90, 1, 8822, 1889, 3744, 1]
-    # token_ids = [1, 8822, 57507, 1]
-    # token_ids = [90, 1, 8822, 57507, 1]
 
     print(
         '"fn_add_numbers" :',
