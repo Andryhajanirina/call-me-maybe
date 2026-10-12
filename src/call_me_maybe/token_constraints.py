@@ -202,6 +202,11 @@ class TokenConstraints:
         if parameter_type == "string":
             if self.decoder.state == JSONState.EXPECT_VALUE_START:
                 return {1}
+                # return {
+                #     token_id
+                #     for token_id in range(self.model.get_vocab_size())
+                #     if self.starts_json_string(token_id)
+                # }
 
             if self.decoder.state == JSONState.VALUE_CONTENT:
                 return set(range(len(self.model.decode([0]))))
@@ -216,3 +221,7 @@ class TokenConstraints:
             return allowed
 
         return set()
+
+    def starts_json_string(self, token_id: int) -> bool:
+        token_text = self.model.decode([token_id])
+        return token_text.startswith('"')
