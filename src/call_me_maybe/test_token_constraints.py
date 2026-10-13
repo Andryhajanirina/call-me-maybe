@@ -89,6 +89,20 @@ def main() -> None:
             constraints.starts_json_string(token_id),
         )
     print(hasattr(model, "get_vocab_size"))
+
+    for token_id in [1, 29133, 45916, 884, 17, 90]:
+        token = model._tokenizer.convert_ids_to_tokens(token_id)
+        decoded = model.decode([token_id])
+
+        print(
+            token_id,
+            "Token :", repr(token),
+            "| Décodé :", repr(decoded),
+        )
+
+    tokenizer = model._tokenizer
+    print("Taille du vocabulaire :", tokenizer.vocab_size)
+    print("Nombre de tokens spéciaux :", len(tokenizer.all_special_tokens))
     # print("\nTest process_token:")
 
     # # generated_tokens = [8822, 1889, 3744]

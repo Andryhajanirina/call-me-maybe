@@ -1,6 +1,4 @@
 import json
-import inspect
-
 from llm_sdk import Small_LLM_Model
 
 from call_me_maybe.function_schema import FunctionSchema
