@@ -1,3 +1,4 @@
+import json
 from llm_sdk import Small_LLM_Model
 
 from .function_schema import FunctionSchema
@@ -29,6 +30,7 @@ class TokenConstraints:
         self.current_key = ""
         self.current_parameter = None
         self.reading_parameters = False
+        self.string_start_tokens: set[int] = set()
 
     def encode_function_names(self) -> dict[str, list[int]]:
         """Encode all available function names into token ID lists.
@@ -202,14 +204,23 @@ class TokenConstraints:
         if parameter_type == "string":
             if self.decoder.state == JSONState.EXPECT_VALUE_START:
                 return {1}
-                # return {
-                #     token_id
-                #     for token_id in range(self.model.get_vocab_size())
-                #     if self.starts_json_string(token_id)
-                # }
+            #     # return {
+            #     #     token_id
+            #     #     for token_id in range(self.model._tokenizer.vocab_size)
+            #     #     if self.starts_json_string(token_id)
+            #     # }
+            # if self.decoder.state == JSONState.EXPECT_VALUE_START:
+            #     allowed = set()
+
+            #     for token_id in range(self.model._tokenizer.vocab_size):
+            #         if self.starts_json_string(token_id):
+            #             allowed.add(token_id)
+
+            #     return allowed
 
             if self.decoder.state == JSONState.VALUE_CONTENT:
                 return set(range(len(self.model.decode([0]))))
+                # return set(range(len(self.model._tokenizer.vocab_size)))
 
         if parameter_type == "number":
             allowed = {12}
@@ -225,3 +236,14 @@ class TokenConstraints:
     def starts_json_string(self, token_id: int) -> bool:
         token_text = self.model.decode([token_id])
         return token_text.startswith('"')
+
+    def build_string_start_tokens(self) -> None:
+        vocab_path = self.model.get_path_to_vocab_file()
+
+        with open(vocab_path, encoding="utf-8") as file:
+            vocab = json.load(file)
+
+        for token_id in vocab.values():
+            token_text = self.model.decode([token_id])
+            if token_text.startswith('"'):
+                self.string_start_tokens.add(token_id)

@@ -1,4 +1,4 @@
-# import json
+import json
 from llm_sdk import Small_LLM_Model
 
 from call_me_maybe.function_schema import FunctionSchema
@@ -9,15 +9,28 @@ from call_me_maybe.json_state import JSONState
 
 def main() -> None:
     model = Small_LLM_Model()
-    # vocab_path = model.get_path_to_vocab_file()
+    vocab_path = model.get_path_to_vocab_file()
+    print("Chemin du vocabulaire :", vocab_path)
 
-    # with open(vocab_path, "r", encoding="utf-8") as file:
-    #     vocab = json.load(file)
+    with open(vocab_path, "r", encoding="utf-8") as file:
+        vocab = json.load(file)
 
     # print("Vocab size:", len(vocab))
+    # print("Vocab size:", model._tokenizer.vocab_size)
     # for token_id in [1, 45916, 884, 17, 90, 92]:
     #     token_text = model.decode([token_id])
     #     print(token_id, repr(token_text))
+
+    print("Type :", type(vocab))
+    print("Nombre d'entrées :", len(vocab))
+    print("Premières entrées :", list(vocab.items())[:10])
+
+    print("Type du tokenizer :", type(model._tokenizer))
+    print("Méthodes disponibles :")
+
+    for name in dir(model._tokenizer):
+        if "token" in name.lower() or "vocab" in name.lower():
+            print(name)
 
     decoder = JSONDecoder()
     decoder.state = JSONState.EXPECT_VALUE_START
