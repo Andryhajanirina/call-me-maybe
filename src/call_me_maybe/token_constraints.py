@@ -37,7 +37,6 @@ class TokenConstraints:
             merges_path=model.get_path_to_merges_file(),
         )
         self.token_text_cache: dict[int, str] = {}
-        # self.string_content_tokens: set[int] | None = None
 
     def encode_function_names(self) -> dict[str, list[int]]:
         """Encode all available function names into token ID lists.
@@ -216,7 +215,6 @@ class TokenConstraints:
             allowed = {12}
 
             for digit in "0123456789":
-                # token_ids = self.model.encode(digit).squeeze(0).tolist()
                 token_ids = self.tokenizer.encode(digit)
                 allowed.add(token_ids[0])
 
@@ -243,27 +241,6 @@ class TokenConstraints:
         """Check whether a token preserves JSON syntax."""
         token_text = self.get_token_text(token_id)
         return self.decoder.consume_token(token_text)
-
-    # def get_allowed_string_tokens(self) -> set[int]:
-    #     """Return tokens compatible with a string parameter."""
-    #     if self.decoder.state == JSONState.EXPECT_VALUE_START:
-    #         return self.string_start_tokens.copy()
-
-    #     if self.decoder.state == JSONState.VALUE_CONTENT:
-    #         if self.string_content_tokens is None:
-    #             allowed: set[int] = set()
-
-    #             for token_id in range(self.model._tokenizer.vocab_size):
-    #                 token_text = self.get_token_text(token_id)
-
-    #                 if not token_text.startswith('"'):
-    #                     if self.decoder.consume_token(token_text):
-    #                         allowed.add(token_id)
-
-    #             allowed.add(1)
-    #             self.string_content_tokens = allowed
-
-    #     return self.string_content_tokens.copy()
 
     def get_allowed_string_tokens(self) -> set[int]:
         """Return tokens compatible with a string parameter."""
