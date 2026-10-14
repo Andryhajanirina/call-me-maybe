@@ -12,23 +12,22 @@ def main() -> None:
 
     constraints = TokenConstraints(model, schema)
 
-    # print("Number of functions:", len(schema.functions))
-
-    # for function in schema.functions:
-    #     print()
-    #     print("Function:", function.name)
-    #     print("Description:", function.description)
-    #     print("Parameters:")
-
-    #     for name, parameter in function.parameters.items():
-    #         print(f"  {name}: {parameter.type}")
-
-    #     print("Returns:", function.returns.type)
-
-    #     print(f">>>>>>>({schema.get_function_names()})")
     encoded = constraints.encode_function_names()
     for name, token_ids in encoded.items():
         print(f"{name}: {token_ids}")
+
+    for name, token_ids in encoded.items():
+        reference_ids = (
+            model.encode(name)
+            .squeeze(0)
+            .tolist()
+        )
+
+        print(f"\nFonction : {name}")
+        print("Tokenizer personnalisé :", token_ids)
+        print("Modèle de référence    :", reference_ids)
+
+        assert token_ids == reference_ids
 
 
 if __name__ == "__main__":

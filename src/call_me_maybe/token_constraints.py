@@ -5,6 +5,7 @@ from .function_schema import FunctionSchema
 from .json_decoder import JSONDecoder
 from .json_context import JSONContext
 from .json_state import JSONState
+from call_me_maybe.tokenizer import Tokenizer
 
 
 class TokenConstraints:
@@ -26,11 +27,17 @@ class TokenConstraints:
         self.current_function = None
         self.function_name_tokens: list[int] = []
         self.reading_function_name = False
-        # self.function_name_read = False
         self.current_key = ""
         self.current_parameter = None
         self.reading_parameters = False
         self.string_start_tokens: set[int] = set()
+        self.tokenizer = Tokenizer(
+            vocab_path=model.get_path_to_vocab_file(),
+            tokenizer_path=model.get_path_to_tokenizer_file(),
+            merges_path=model.get_path_to_merges_file(),
+        )
+        self.token_text_cache: dict[int, str] = {}
+        # self.string_content_tokens: set[int] | None = None
 
     def encode_function_names(self) -> dict[str, list[int]]:
         """Encode all available function names into token ID lists.
@@ -41,7 +48,8 @@ class TokenConstraints:
         result: dict[str, list[int]] = {}
 
         for name in self.schema.get_function_names():
-            result[name] = self.model.encode(name).squeeze(0).tolist()
+            # result[name] = self.model.encode(name).squeeze(0).tolist()
+            result[name] = self.tokenizer.encode(name)
 
         return result
 
@@ -180,7 +188,7 @@ class TokenConstraints:
         token_id: int,
         generated_tokens: list[int],
     ) -> None:
-        token_text = self.model.decode([token_id])
+        token_text = self.get_token_text(token_id)
 
         self.process_token_text(token_text)
 
@@ -202,31 +210,14 @@ class TokenConstraints:
         parameter_type = self.get_current_parameter_type()
 
         if parameter_type == "string":
-            if self.decoder.state == JSONState.EXPECT_VALUE_START:
-                return {1}
-            #     # return {
-            #     #     token_id
-            #     #     for token_id in range(self.model._tokenizer.vocab_size)
-            #     #     if self.starts_json_string(token_id)
-            #     # }
-            # if self.decoder.state == JSONState.EXPECT_VALUE_START:
-            #     allowed = set()
-
-            #     for token_id in range(self.model._tokenizer.vocab_size):
-            #         if self.starts_json_string(token_id):
-            #             allowed.add(token_id)
-
-            #     return allowed
-
-            if self.decoder.state == JSONState.VALUE_CONTENT:
-                return set(range(len(self.model.decode([0]))))
-                # return set(range(len(self.model._tokenizer.vocab_size)))
+            return self.get_allowed_string_tokens()
 
         if parameter_type == "number":
             allowed = {12}
 
             for digit in "0123456789":
-                token_ids = self.model.encode(digit).squeeze(0).tolist()
+                # token_ids = self.model.encode(digit).squeeze(0).tolist()
+                token_ids = self.tokenizer.encode(digit)
                 allowed.add(token_ids[0])
 
             return allowed
@@ -234,7 +225,7 @@ class TokenConstraints:
         return set()
 
     def starts_json_string(self, token_id: int) -> bool:
-        token_text = self.model.decode([token_id])
+        token_text = self.get_token_text(token_id)
         return token_text.startswith('"')
 
     def build_string_start_tokens(self) -> None:
@@ -244,6 +235,61 @@ class TokenConstraints:
             vocab = json.load(file)
 
         for token_id in vocab.values():
-            token_text = self.model.decode([token_id])
+            token_text = self.get_token_text(token_id)
             if token_text.startswith('"'):
                 self.string_start_tokens.add(token_id)
+
+    def is_token_valid(self, token_id: int) -> bool:
+        """Check whether a token preserves JSON syntax."""
+        token_text = self.get_token_text(token_id)
+        return self.decoder.consume_token(token_text)
+
+    # def get_allowed_string_tokens(self) -> set[int]:
+    #     """Return tokens compatible with a string parameter."""
+    #     if self.decoder.state == JSONState.EXPECT_VALUE_START:
+    #         return self.string_start_tokens.copy()
+
+    #     if self.decoder.state == JSONState.VALUE_CONTENT:
+    #         if self.string_content_tokens is None:
+    #             allowed: set[int] = set()
+
+    #             for token_id in range(self.model._tokenizer.vocab_size):
+    #                 token_text = self.get_token_text(token_id)
+
+    #                 if not token_text.startswith('"'):
+    #                     if self.decoder.consume_token(token_text):
+    #                         allowed.add(token_id)
+
+    #             allowed.add(1)
+    #             self.string_content_tokens = allowed
+
+    #     return self.string_content_tokens.copy()
+
+    def get_allowed_string_tokens(self) -> set[int]:
+        """Return tokens compatible with a string parameter."""
+        if self.decoder.state == JSONState.EXPECT_VALUE_START:
+            return self.string_start_tokens.copy()
+
+        if self.decoder.state == JSONState.VALUE_CONTENT:
+            allowed: set[int] = set()
+
+            for token_id in range(self.model._tokenizer.vocab_size):
+                token_text = self.get_token_text(token_id)
+
+                if not token_text.startswith('"'):
+                    if self.decoder.consume_token(token_text):
+                        allowed.add(token_id)
+
+            allowed.add(1)
+            return allowed
+
+        return set()
+
+    def get_token_text(self, token_id: int) -> str:
+        """Return a token's decoded text, using the cache."""
+        if token_id not in self.token_text_cache:
+            self.token_text_cache[token_id] = (
+                self.tokenizer.decode([token_id])
+            )
+
+        return self.token_text_cache[token_id]

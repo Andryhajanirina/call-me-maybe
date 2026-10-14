@@ -202,7 +202,25 @@ class TokenConstraints:
         parameter_type = self.get_current_parameter_type()
 
         if parameter_type == "string":
-            return self.get_allowed_string_tokens()
+            if self.decoder.state == JSONState.EXPECT_VALUE_START:
+                return {1}
+            #     # return {
+            #     #     token_id
+            #     #     for token_id in range(self.model._tokenizer.vocab_size)
+            #     #     if self.starts_json_string(token_id)
+            #     # }
+            # if self.decoder.state == JSONState.EXPECT_VALUE_START:
+            #     allowed = set()
+
+            #     for token_id in range(self.model._tokenizer.vocab_size):
+            #         if self.starts_json_string(token_id):
+            #             allowed.add(token_id)
+
+            #     return allowed
+
+            if self.decoder.state == JSONState.VALUE_CONTENT:
+                return set(range(len(self.model.decode([0]))))
+                # return set(range(len(self.model._tokenizer.vocab_size)))
 
         if parameter_type == "number":
             allowed = {12}
@@ -229,28 +247,3 @@ class TokenConstraints:
             token_text = self.model.decode([token_id])
             if token_text.startswith('"'):
                 self.string_start_tokens.add(token_id)
-
-    def is_token_valid(self, token_id: int) -> bool:
-        """Check whether a token preserves JSON syntax."""
-        token_text = self.model.decode([token_id])
-        return self.decoder.consume_token(token_text)
-
-    def get_allowed_string_tokens(self) -> set[int]:
-        """Return tokens compatible with a string parameter."""
-        if self.decoder.state == JSONState.EXPECT_VALUE_START:
-            return self.string_start_tokens.copy()
-
-        if self.decoder.state == JSONState.VALUE_CONTENT:
-            allowed: set[int] = set()
-
-            for token_id in range(self.model._tokenizer.vocab_size):
-                token_text = self.model.decode([token_id])
-
-                if not token_text.startswith('"'):
-                    if self.decoder.consume_token(token_text):
-                        allowed.add(token_id)
-
-            allowed.add(1)
-            return allowed
-
-        return set()

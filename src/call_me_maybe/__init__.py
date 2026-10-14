@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:44:03 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/14 10:12:51 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/14 13:48:06 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -17,6 +17,7 @@ from .font_logo import LogoGenerator
 # from .test_schema import main
 
 from .test_token_constraints import main
+# from .test_tokenizer import main
 # from .test_json_context import main
 # from .test_json_decoder import main
 
