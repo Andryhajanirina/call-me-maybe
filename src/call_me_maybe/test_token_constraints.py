@@ -244,6 +244,99 @@ def test_string_content_timing(
     print(f"Filtering duration: {elapsed:.3f} seconds")
 
 
+def test_escaped_quote_in_string(
+    constraints: TokenConstraints,
+) -> None:
+    """An escaped quote must not close a JSON string."""
+    print("===== An escaped quote must not close a JSON string. =====")
+    decoder = constraints.decoder
+    decoder.state = JSONState.VALUE_CONTENT
+    decoder.object_stack = ["object"]
+
+    assert decoder.consume_char("\\")
+    assert decoder.consume_char('"')
+    assert decoder.state == JSONState.VALUE_CONTENT
+
+
+def test_consume_token_restores_escape_state(
+    constraints: TokenConstraints,
+) -> None:
+    """Token simulation must restore the escape state."""
+    print("==== Token simulation must restore the escape state. ====")
+    decoder = constraints.decoder
+    decoder.state = JSONState.VALUE_CONTENT
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+
+    assert decoder.consume_token("\\")
+    assert decoder.escape_next is False
+    assert decoder.state == JSONState.VALUE_CONTENT
+
+
+def test_unicode_escape_in_string(
+    constraints: TokenConstraints,
+) -> None:
+    """A Unicode escape must remain inside the string."""
+    print("""==== A Unicode escape must remain inside the string. ====""")
+    decoder = constraints.decoder
+    decoder.state = JSONState.VALUE_CONTENT
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+
+    for char in '\\u0041':
+        assert decoder.consume_char(char)
+
+    assert decoder.state == JSONState.VALUE_CONTENT
+    assert decoder.escape_next is False
+
+
+def test_invalid_unicode_escape(
+    constraints: TokenConstraints,
+) -> None:
+    """Reject a non-hex digit in a Unicode escape."""
+    print("""==== Reject a non-hex digit in a Unicode escape. ====""")
+    decoder = constraints.decoder
+    decoder.state = JSONState.VALUE_CONTENT
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+
+    for char in '\\u00':
+        assert decoder.consume_char(char)
+    assert not decoder.consume_char("G")
+
+
+def test_consume_token_restores_unicode_state(
+    constraints: TokenConstraints,
+) -> None:
+    """Token simulation must restore Unicode escape state."""
+    print("""==== Token simulation must restore Unicode escape state. ====""")
+    decoder = constraints.decoder
+    decoder.state = JSONState.VALUE_CONTENT
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+    decoder.unicode_escape_remaining = 0
+
+    assert decoder.consume_token("\\u")
+    assert decoder.unicode_escape_remaining == 0
+    assert decoder.escape_next is False
+
+
+def test_escaped_quote_in_key(
+    constraints: TokenConstraints,
+) -> None:
+    """An escaped quote must not close a JSON key."""
+    print("""==== An escaped quote must not close a JSON key. ====""")
+    decoder = constraints.decoder
+    decoder.state = JSONState.KEY_CONTENT
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+    decoder.unicode_escape_remaining = 0
+
+    assert decoder.consume_char("\\")
+    assert decoder.consume_char('"')
+    assert decoder.state == JSONState.KEY_CONTENT
+
+
 def main() -> None:
     """Run token constraint tests."""
     model = Small_LLM_Model()
@@ -274,6 +367,12 @@ def main() -> None:
     test_token_text_cache(constraints)
 
     test_string_content_timing(constraints)
+    test_escaped_quote_in_string(constraints)
+    test_consume_token_restores_escape_state(constraints)
+    test_unicode_escape_in_string(constraints)
+    test_invalid_unicode_escape(constraints)
+    test_consume_token_restores_unicode_state(constraints)
+    test_escaped_quote_in_key(constraints)
 
     print("\nTous les tests sont terminés.")
 

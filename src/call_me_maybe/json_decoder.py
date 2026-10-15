@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:40:38 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/04 10:16:33 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/15 11:24:34 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -18,6 +18,8 @@ class JSONDecoder:
     def __init__(self) -> None:
         self.state = JSONState.START
         self.object_stack: list[str] = []
+        self.escape_next = False
+        self.unicode_escape_remaining = 0
 
     def my_isdigit(value):
         try:
@@ -69,6 +71,23 @@ class JSONDecoder:
                 return True
 
         elif self.state == JSONState.KEY_CONTENT:
+            if self.unicode_escape_remaining > 0:
+                if char not in "0123456789abcdefABCDEF":
+                    return False
+                self.unicode_escape_remaining -= 1
+                return True
+
+            if self.escape_next:
+                self.escape_next = False
+                if char == "u":
+                    self.unicode_escape_remaining = 4
+                    return True
+                return char in '"\\/bfnrt'
+
+            if char == "\\":
+                self.escape_next = True
+                return True
+
             if char == '"':
                 self.state = JSONState.EXPECT_COLON
                 return True
@@ -108,6 +127,23 @@ class JSONDecoder:
                 return True
 
         elif self.state == JSONState.VALUE_CONTENT:
+            if self.unicode_escape_remaining > 0:
+                if char not in "0123456789abcdefABCDEF":
+                    return False
+                self.unicode_escape_remaining -= 1
+                return True
+
+            if self.escape_next:
+                self.escape_next = False
+                if char == "u":
+                    self.unicode_escape_remaining = 4
+                    return True
+                return char in '"\\/bfnrt'
+
+            if char == "\\":
+                self.escape_next = True
+                return True
+
             if char == '"':
                 self.state = JSONState.EXPECT_COMMA
                 return True
@@ -200,15 +236,25 @@ class JSONDecoder:
         """
         original_state = self.state
         original_stack = self.object_stack.copy()
+        original_escape_next = self.escape_next
+        original_unicode_escape_remaining = (
+            self.unicode_escape_remaining
+        )
 
         for char in token:
             if not self.consume_char(char):
                 self.state = original_state
                 self.object_stack = original_stack
+                self.escape_next = original_escape_next
+                self.unicode_escape_remaining = (
+                    original_unicode_escape_remaining
+                )
                 return False
 
         self.state = original_state
         self.object_stack = original_stack
+        self.escape_next = original_escape_next
+        self.unicode_escape_remaining = original_unicode_escape_remaining
 
         return True
 
