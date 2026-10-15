@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:41:02 by andry-ha            #+#    #+#            #
-#   Updated: 2026/09/15 12:05:58 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/15 12:45:05 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -27,6 +27,9 @@ class JSONState(Enum):
     EXPECT_NUMBER_DIGIT = auto()
     EXPECT_ZERO_END = auto()
     EXPECT_FRACTION_DIGIT = auto()
+    EXPECT_EXPONENT = auto()
+    EXPECT_EXPONENT_DIGIT = auto()
+    EXPECT_EXPONENT_NUMBER = auto()
     VALUE_NUMBER = auto()
     EXPECT_COMMA = auto()
     EXPECT_OBJECT_END = auto()

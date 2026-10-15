@@ -354,6 +354,110 @@ def test_number_exponent(
         )
 
 
+def test_invalid_number_exponents(
+    constraints: TokenConstraints,
+) -> None:
+    """Reject incomplete or malformed number exponents."""
+    print("""==== Reject incomplete or malformed number exponents. ====""")
+    invalid_numbers = ["1e", "1e+", "1e-", "1e3.4"]
+
+    for number in invalid_numbers:
+        decoder = constraints.decoder
+        decoder.state = JSONState.EXPECT_VALUE_START
+        decoder.object_stack = ["object"]
+        decoder.escape_next = False
+        decoder.unicode_escape_remaining = 0
+
+        rejected = False
+        for char in number:
+            if not decoder.consume_char(char):
+                rejected = True
+                break
+
+        if number == "1e3.4":
+            assert rejected, f"Accepted invalid number {number!r}"
+
+
+def test_number_completion_state(
+    constraints: TokenConstraints,
+) -> None:
+    """A number must reach a valid ending state."""
+    print("""==== A number must reach a valid ending state. ====""")
+    decoder = constraints.decoder
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+    decoder.unicode_escape_remaining = 0
+
+    decoder.state = JSONState.EXPECT_VALUE_START
+    assert decoder.consume_char("1")
+    assert decoder.state == JSONState.VALUE_NUMBER
+
+    decoder.state = JSONState.EXPECT_EXPONENT
+    assert decoder.consume_char("3")
+    assert decoder.state == JSONState.EXPECT_EXPONENT_NUMBER
+
+
+def test_number_exponent_sequences(
+    constraints: TokenConstraints,
+) -> None:
+    """Test complete number exponent sequences."""
+    print("""==== Test complete number exponent sequences. ====""")
+    valid_numbers = ["1e3", "1E3", "1e+3", "1e-3", "0e3"]
+
+    for number in valid_numbers:
+        decoder = constraints.decoder
+        decoder.state = JSONState.EXPECT_VALUE_START
+        decoder.object_stack = ["object"]
+        decoder.escape_next = False
+        decoder.unicode_escape_remaining = 0
+
+        for char in number:
+            assert decoder.consume_char(char), (
+                f"Rejected {char!r} in {number!r}"
+            )
+
+
+def test_reject_fraction_after_exponent(
+    constraints: TokenConstraints,
+) -> None:
+    """A JSON number cannot have a fraction after its exponent."""
+    print("==== A JSON number cannot have a fraction after its exponent. ====")
+    decoder = constraints.decoder
+    decoder.state = JSONState.EXPECT_VALUE_START
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+    decoder.unicode_escape_remaining = 0
+
+    for char in "1e3":
+        assert decoder.consume_char(char), (
+            f"Unexpected rejection of {char!r}"
+        )
+
+    assert not decoder.consume_char("."), (
+        "A decimal point must be rejected after an exponent"
+    )
+
+
+def test_fraction_with_exponent(
+    constraints: TokenConstraints,
+) -> None:
+    """A fraction may be followed by a valid exponent."""
+    print("=== A fraction may be followed by a valid exponent. ===")
+    valid_numbers = ["1.5e3", "0.25E+2", "10.0e-1"]
+
+    for number in valid_numbers:
+        decoder = constraints.decoder
+        decoder.state = JSONState.EXPECT_VALUE_START
+        decoder.object_stack = ["object"]
+        decoder.escape_next = False
+        decoder.unicode_escape_remaining = 0
+
+        for char in number:
+            assert decoder.consume_char(char), (
+                f"Rejected {char!r} in {number!r}"
+            )
+
+
 def main() -> None:
     """Run token constraint tests."""
     model = Small_LLM_Model()
@@ -391,6 +495,11 @@ def main() -> None:
     test_consume_token_restores_unicode_state(constraints)
     test_escaped_quote_in_key(constraints)
     test_number_exponent(constraints)
+    test_invalid_number_exponents(constraints)
+    test_number_completion_state(constraints)
+    test_number_exponent_sequences(constraints)
+    test_reject_fraction_after_exponent(constraints)
+    test_fraction_with_exponent(constraints)
 
     print("\nTous les tests sont terminés.")
 

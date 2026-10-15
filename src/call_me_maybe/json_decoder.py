@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:40:38 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/15 11:24:34 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/15 12:57:13 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -159,6 +159,10 @@ class JSONDecoder:
                 self.state = JSONState.EXPECT_FRACTION_DIGIT
                 return True
 
+            if char in "eE":
+                self.state = JSONState.EXPECT_EXPONENT
+                return True
+
             if char == "}":
                 if not self.object_stack:
                     return False
@@ -179,6 +183,10 @@ class JSONDecoder:
 
             if char == ".":
                 self.state = JSONState.EXPECT_FRACTION_DIGIT
+                return True
+
+            if char in "eE":
+                self.state = JSONState.EXPECT_EXPONENT
                 return True
 
             if self.is_whitespace(char):
@@ -206,6 +214,62 @@ class JSONDecoder:
             if char.isdigit():
                 self.state = JSONState.VALUE_NUMBER
                 return True
+
+        # elif self.state == JSONState.EXPECT_EXPONENT:
+        #     if char in "+-":
+        #         self.state = JSONState.EXPECT_EXPONENT_DIGIT
+        #         return True
+
+        #     if char.isdigit():
+        #         self.state = JSONState.VALUE_NUMBER
+        #         return True
+
+        # elif self.state == JSONState.EXPECT_EXPONENT_DIGIT:
+        #     if char.isdigit():
+        #         self.state = JSONState.VALUE_NUMBER
+        #         return True
+        # ==================================================
+
+        elif self.state == JSONState.EXPECT_EXPONENT:
+            if char in "+-":
+                self.state = JSONState.EXPECT_EXPONENT_DIGIT
+                return True
+
+            if char.isdigit():
+                self.state = JSONState.EXPECT_EXPONENT_NUMBER
+                return True
+
+        elif self.state == JSONState.EXPECT_EXPONENT_DIGIT:
+            if char.isdigit():
+                self.state = JSONState.EXPECT_EXPONENT_NUMBER
+                return True
+
+        elif self.state == JSONState.EXPECT_EXPONENT_NUMBER:
+            if char.isdigit():
+                return True
+
+            if self.is_whitespace(char):
+                self.state = JSONState.EXPECT_COMMA
+                return True
+
+            if char == ",":
+                self.state = JSONState.EXPECT_KEY_START
+                return True
+
+            if char == "}":
+                if not self.object_stack:
+                    return False
+
+                self.object_stack.pop()
+
+                if not self.object_stack:
+                    self.state = JSONState.DONE
+                else:
+                    self.state = JSONState.EXPECT_COMMA
+
+                return True
+
+        # ==================================================
 
         elif self.state == JSONState.EXPECT_COMMA:
             if self.is_whitespace(char):

@@ -5,6 +5,7 @@ Update token_constraints.py
 Update test_token_constraints.py
 Update test_schema.py
 
-15/10/2026
+15/10/2026 for managing exponent
 Update json_decoder.py
 Update test_token_constraints.py
+Update json_state.py
