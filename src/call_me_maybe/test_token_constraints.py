@@ -337,6 +337,23 @@ def test_escaped_quote_in_key(
     assert decoder.state == JSONState.KEY_CONTENT
 
 
+def test_number_exponent(
+    constraints: TokenConstraints,
+) -> None:
+    """A valid JSON number may contain an exponent."""
+    print("""==== A valid JSON number may contain an exponent. ====""")
+    decoder = constraints.decoder
+    decoder.state = JSONState.EXPECT_VALUE_START
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+    decoder.unicode_escape_remaining = 0
+
+    for char in "1e3":
+        assert decoder.consume_char(char), (
+            f"Number parser rejected {char!r}"
+        )
+
+
 def main() -> None:
     """Run token constraint tests."""
     model = Small_LLM_Model()
@@ -373,6 +390,7 @@ def main() -> None:
     test_invalid_unicode_escape(constraints)
     test_consume_token_restores_unicode_state(constraints)
     test_escaped_quote_in_key(constraints)
+    test_number_exponent(constraints)
 
     print("\nTous les tests sont terminés.")
 
