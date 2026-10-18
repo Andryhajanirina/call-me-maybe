@@ -458,6 +458,232 @@ def test_fraction_with_exponent(
             )
 
 
+def test_fraction_requires_digit(
+    constraints: TokenConstraints,
+) -> None:
+    """A decimal point must be followed by a digit."""
+    print("==== A decimal point must be followed by a digit. ====")
+    decoder = constraints.decoder
+    decoder.state = JSONState.EXPECT_VALUE_START
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+    decoder.unicode_escape_remaining = 0
+
+    assert decoder.consume_char("1")
+    assert decoder.consume_char(".")
+    assert decoder.state == JSONState.EXPECT_FRACTION_DIGIT
+
+    assert not decoder.consume_char("e")
+    assert not decoder.consume_char("}")
+
+    assert decoder.consume_char("5")
+    assert decoder.state == JSONState.VALUE_NUMBER
+
+
+def test_reject_leading_zero(
+    constraints: TokenConstraints,
+) -> None:
+    """JSON numbers cannot have leading zeros."""
+    print("==== JSON numbers cannot have leading zeros. ====")
+    invalid_numbers = ["01", "00", "0123"]
+
+    for number in invalid_numbers:
+        decoder = constraints.decoder
+        decoder.state = JSONState.EXPECT_VALUE_START
+        decoder.object_stack = ["object"]
+        decoder.escape_next = False
+        decoder.unicode_escape_remaining = 0
+
+        assert decoder.consume_char(number[0])
+        assert not decoder.consume_char(number[1]), (
+            f"Accepted a leading zero in {number!r}"
+        )
+
+
+def test_reject_negative_leading_zero(
+    constraints: TokenConstraints,
+) -> None:
+    """Reject negative numbers with leading zeros."""
+    print("==== Reject negative numbers with leading zeros. ====")
+    decoder = constraints.decoder
+    decoder.state = JSONState.EXPECT_VALUE_START
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+    decoder.unicode_escape_remaining = 0
+
+    assert decoder.consume_char("-")
+    assert decoder.consume_char("0")
+    assert not decoder.consume_char("1"), (
+        "Accepted an invalid number: -01"
+    )
+
+
+def test_zero_followed_by_whitespace(
+    constraints: TokenConstraints,
+) -> None:
+    """Allow whitespace after a zero value."""
+    print("==== Allow whitespace after a zero value. ====")
+    decoder = constraints.decoder
+    decoder.state = JSONState.EXPECT_VALUE_START
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+    decoder.unicode_escape_remaining = 0
+
+    assert decoder.consume_char("0")
+    assert decoder.consume_char(" ")
+    assert decoder.state == JSONState.EXPECT_COMMA
+
+
+def test_negative_zero_followed_by_whitespace(
+    constraints: TokenConstraints,
+) -> None:
+    """Allow whitespace after negative zero."""
+    print("==== Allow whitespace after negative zero. ====")
+    decoder = constraints.decoder
+    decoder.state = JSONState.EXPECT_VALUE_START
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+    decoder.unicode_escape_remaining = 0
+
+    assert decoder.consume_char("-")
+    assert decoder.consume_char("0")
+    assert decoder.consume_char(" ")
+    assert decoder.state == JSONState.EXPECT_COMMA
+
+
+def test_reject_number_continuation_after_whitespace(
+    constraints: TokenConstraints,
+) -> None:
+    """Reject number continuation after whitespace."""
+    print("==== Reject number continuation after whitespace. ====")
+    invalid_sequences = ["0 1", "0 .5", "0 e3"]
+
+    for sequence in invalid_sequences:
+        decoder = constraints.decoder
+        decoder.state = JSONState.EXPECT_VALUE_START
+        decoder.object_stack = ["object"]
+        decoder.escape_next = False
+        decoder.unicode_escape_remaining = 0
+
+        assert decoder.consume_char(sequence[0])
+        assert decoder.consume_char(sequence[1])
+        assert not decoder.consume_char(sequence[2]), (
+            f"Accepted invalid sequence {sequence!r}"
+        )
+
+
+def test_zero_followed_by_comma(
+    constraints: TokenConstraints,
+) -> None:
+    """Allow a comma after zero and require a new key."""
+    print("==== Allow a comma after zero and require a new key. ====")
+    decoder = constraints.decoder
+    decoder.state = JSONState.EXPECT_VALUE_START
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+    decoder.unicode_escape_remaining = 0
+
+    assert decoder.consume_char("0")
+    assert decoder.consume_char(",")
+    assert decoder.state == JSONState.EXPECT_KEY_START
+    assert not decoder.consume_char("}")
+
+
+def test_whitespace_after_comma(
+    constraints: TokenConstraints,
+) -> None:
+    """Allow whitespace between a comma and the next key."""
+    print("==== Allow whitespace between a comma and the next key. ====")
+    decoder = constraints.decoder
+    decoder.state = JSONState.EXPECT_VALUE_START
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+    decoder.unicode_escape_remaining = 0
+
+    assert decoder.consume_char("0")
+    assert decoder.consume_char(",")
+    assert decoder.consume_char(" ")
+    assert decoder.state == JSONState.EXPECT_KEY_START
+    assert decoder.consume_char('"')
+    assert decoder.state == JSONState.KEY_CONTENT
+
+
+def test_reject_trailing_comma_with_whitespace(
+    constraints: TokenConstraints,
+) -> None:
+    """Reject a closing brace after a comma and whitespace."""
+    print("==== Reject a closing brace after a comma and whitespace. ====")
+    decoder = constraints.decoder
+    decoder.state = JSONState.EXPECT_VALUE_START
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+    decoder.unicode_escape_remaining = 0
+
+    assert decoder.consume_char("0")
+    assert decoder.consume_char(",")
+    assert decoder.consume_char(" ")
+    assert not decoder.consume_char("}")
+
+
+def test_reject_trailing_comma(
+    constraints: TokenConstraints,
+) -> None:
+    """Reject a closing brace immediately after a comma."""
+    print("==== Reject a closing brace immediately after a comma. ====")
+    decoder = constraints.decoder
+    decoder.state = JSONState.EXPECT_VALUE_START
+    decoder.object_stack = ["object"]
+    decoder.escape_next = False
+    decoder.unicode_escape_remaining = 0
+
+    assert decoder.consume_char("0")
+    assert decoder.consume_char(",")
+    assert not decoder.consume_char("}")
+
+
+def test_nested_json_object(
+    constraints: TokenConstraints,
+) -> None:
+    """Accept a valid nested JSON object."""
+    print("==== Accept a valid nested JSON object. ====")
+    decoder = constraints.decoder
+    decoder.state = JSONState.START
+    decoder.object_stack = []
+    decoder.escape_next = False
+    decoder.unicode_escape_remaining = 0
+
+    json_text = '{"user": {"age": 20}}'
+
+    for char in json_text:
+        assert decoder.consume_char(char), (
+            f"Rejected character {char!r} "
+            f"in state {decoder.state}"
+        )
+
+    assert decoder.state == JSONState.DONE
+    assert decoder.object_stack == []
+
+
+def test_number_value_tokens(
+    constraints: TokenConstraints,
+) -> None:
+    """Allow number-starting tokens for numeric parameters."""
+    print("==== Allow number-starting tokens for numeric parameters. ====")
+    constraints.current_function = "fn_add_numbers"
+    constraints.current_parameter = "a"
+    constraints.decoder.state = JSONState.EXPECT_VALUE_START
+
+    allowed = constraints.get_allowed_value_tokens()
+
+    assert 12 in allowed, "The minus token must be allowed"
+
+    for digit in "0123456789":
+        token_ids = constraints.tokenizer.encode(digit)
+        assert token_ids[0] in allowed, (
+            f"Missing token for digit {digit}"
+        )
+
+
 def main() -> None:
     """Run token constraint tests."""
     model = Small_LLM_Model()
@@ -500,6 +726,17 @@ def main() -> None:
     test_number_exponent_sequences(constraints)
     test_reject_fraction_after_exponent(constraints)
     test_fraction_with_exponent(constraints)
+    test_fraction_requires_digit(constraints)
+    test_reject_leading_zero(constraints)
+    test_reject_negative_leading_zero(constraints)
+    test_zero_followed_by_whitespace(constraints)
+    test_negative_zero_followed_by_whitespace(constraints)
+    test_reject_number_continuation_after_whitespace(constraints)
+    test_zero_followed_by_comma(constraints)
+    test_reject_trailing_comma_with_whitespace(constraints)
+    test_reject_trailing_comma(constraints)
+    test_nested_json_object(constraints)
+    test_number_value_tokens(constraints)
 
     print("\nTous les tests sont terminés.")
 

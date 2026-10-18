@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:40:38 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/15 12:57:13 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/18 10:49:53 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -21,12 +21,12 @@ class JSONDecoder:
         self.escape_next = False
         self.unicode_escape_remaining = 0
 
-    def my_isdigit(value):
-        try:
-            float(value)
-            return True
-        except ValueError:
-            return False
+    # def my_isdigit(value):
+    #     try:
+    #         float(value)
+    #         return True
+    #     except ValueError:
+    #         return False
 
     def consume_char(self, char: str) -> bool:
         """
@@ -150,11 +150,19 @@ class JSONDecoder:
             return True
 
         elif self.state == JSONState.EXPECT_NUMBER_DIGIT:
-            if char.isdigit():
+            if char == "0":
+                self.state = JSONState.EXPECT_ZERO_END
+                return True
+
+            if char in "123456789":
                 self.state = JSONState.VALUE_NUMBER
                 return True
 
         elif self.state == JSONState.EXPECT_ZERO_END:
+            if self.is_whitespace(char):
+                self.state = JSONState.EXPECT_COMMA
+                return True
+
             if char == ".":
                 self.state = JSONState.EXPECT_FRACTION_DIGIT
                 return True
@@ -214,21 +222,6 @@ class JSONDecoder:
             if char.isdigit():
                 self.state = JSONState.VALUE_NUMBER
                 return True
-
-        # elif self.state == JSONState.EXPECT_EXPONENT:
-        #     if char in "+-":
-        #         self.state = JSONState.EXPECT_EXPONENT_DIGIT
-        #         return True
-
-        #     if char.isdigit():
-        #         self.state = JSONState.VALUE_NUMBER
-        #         return True
-
-        # elif self.state == JSONState.EXPECT_EXPONENT_DIGIT:
-        #     if char.isdigit():
-        #         self.state = JSONState.VALUE_NUMBER
-        #         return True
-        # ==================================================
 
         elif self.state == JSONState.EXPECT_EXPONENT:
             if char in "+-":

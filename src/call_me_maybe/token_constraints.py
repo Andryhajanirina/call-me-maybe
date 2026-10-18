@@ -69,15 +69,14 @@ class TokenConstraints:
         logits: list[float],
         allowed_token_ids: set[int],
     ) -> list[float]:
-        """Set logits of disallowed tokens to negative infinity.
+        """Set disallowed token logits to negative infinity.
 
         Args:
-            logits: Original probability scores from LLM model.
-            allowed_token_ids: Set of token IDs that preserve valid
-                syntax/schema.
+            logits: Raw model logits for the next token.
+            allowed_token_ids: Token IDs allowed by the constraints.
 
         Returns:
-            Modified logits array.
+            Logits with disallowed tokens masked.
         """
         constrained = [float("-inf")] * len(logits)
 
