@@ -12,3 +12,5 @@ Update json_state.py
 
 18/10/2026
 test_token_constraints.py (interdire les zéros initiaux invalides #test_reject_leading_zero)
+json_decoder.py
+token_constraints.py
