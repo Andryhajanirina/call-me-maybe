@@ -684,6 +684,163 @@ def test_number_value_tokens(
         )
 
 
+def test_fraction_value_tokens(
+    constraints: TokenConstraints,
+) -> None:
+    """Only digits may follow a decimal point."""
+    print("==== Only digits may follow a decimal point. ====")
+    decoder = constraints.decoder
+    decoder.state = JSONState.EXPECT_FRACTION_DIGIT
+
+    constraints.current_function = "fn_add_numbers"
+    constraints.current_parameter = "a"
+
+    allowed = constraints.get_allowed_value_tokens()
+
+    for digit in "0123456789":
+        token_ids = constraints.tokenizer.encode(digit)
+        assert token_ids[0] in allowed, (
+            f"Missing token for digit {digit}"
+        )
+
+    forbidden_chars = ["e", "-", "}"]
+
+    for char in forbidden_chars:
+        token_ids = constraints.tokenizer.encode(char)
+        assert token_ids[0] not in allowed, (
+            f"Unexpected token for {char!r}"
+        )
+
+
+def test_negative_number_value_tokens(
+    constraints: TokenConstraints,
+) -> None:
+    """Only digits may follow a minus sign."""
+    print("==== Only digits may follow a minus sign. ====")
+    constraints.current_function = "fn_add_numbers"
+    constraints.current_parameter = "a"
+    constraints.decoder.state = JSONState.EXPECT_NUMBER_DIGIT
+
+    allowed = constraints.get_allowed_value_tokens()
+
+    for digit in "0123456789":
+        token_ids = constraints.tokenizer.encode(digit)
+        assert token_ids[0] in allowed, (
+            f"Missing token for digit {digit}"
+        )
+
+    for char in [".", "e", "}"]:
+        token_ids = constraints.tokenizer.encode(char)
+        assert token_ids[0] not in allowed, (
+            f"Unexpected token for {char!r}"
+        )
+
+
+def test_zero_value_tokens(
+    constraints: TokenConstraints,
+) -> None:
+    """Check valid continuations after a zero."""
+    print("==== Check valid continuations after a zero. ====")
+    constraints.current_function = "fn_add_numbers"
+    constraints.current_parameter = "a"
+    constraints.decoder.state = JSONState.EXPECT_ZERO_END
+
+    allowed = constraints.get_allowed_value_tokens()
+
+    for char in [".", "e"]:
+        token_ids = constraints.tokenizer.encode(char)
+        assert token_ids[0] in allowed, (
+            f"Missing token for {char!r}"
+        )
+
+    for char in ["1", "-"]:
+        token_ids = constraints.tokenizer.encode(char)
+        assert token_ids[0] not in allowed, (
+            f"Unexpected token for {char!r}"
+        )
+
+
+def test_integer_value_tokens(
+    constraints: TokenConstraints,
+) -> None:
+    """Check valid continuations after an integer."""
+    print("==== Check valid continuations after an integer. ====")
+    constraints.current_function = "fn_add_numbers"
+    constraints.current_parameter = "a"
+    constraints.decoder.state = JSONState.VALUE_NUMBER
+
+    allowed = constraints.get_allowed_value_tokens()
+
+    for char in ["0", "5", ".", "e", "E"]:
+        token_ids = constraints.tokenizer.encode(char)
+        assert token_ids[0] in allowed, (
+            f"Missing token for {char!r}"
+        )
+
+    for char in ["-", "}"]:
+        token_ids = constraints.tokenizer.encode(char)
+        assert token_ids[0] not in allowed, (
+            f"Unexpected token for {char!r}"
+        )
+
+
+def test_exponent_value_tokens(
+    constraints: TokenConstraints,
+) -> None:
+    """Check valid tokens in exponent states."""
+    print("==== Check valid tokens in exponent states. ====")
+    constraints.current_function = "fn_add_numbers"
+    constraints.current_parameter = "a"
+
+    constraints.decoder.state = JSONState.EXPECT_EXPONENT
+    allowed = constraints.get_allowed_value_tokens()
+
+    for char in ["+", "-", "3"]:
+        token_ids = constraints.tokenizer.encode(char)
+        assert token_ids[0] in allowed, (
+            f"Missing token for {char!r} after exponent marker"
+        )
+
+    constraints.decoder.state = JSONState.EXPECT_EXPONENT_DIGIT
+    allowed = constraints.get_allowed_value_tokens()
+
+    for char in ["0", "5"]:
+        token_ids = constraints.tokenizer.encode(char)
+        assert token_ids[0] in allowed, (
+            f"Missing token for {char!r} after exponent sign"
+        )
+
+    for char in ["+", "-", "."]:
+        token_ids = constraints.tokenizer.encode(char)
+        assert token_ids[0] not in allowed, (
+            f"Unexpected token for {char!r} after exponent sign"
+        )
+
+
+def test_exponent_number_tokens(
+    constraints: TokenConstraints,
+) -> None:
+    """Check valid continuations after a complete exponent."""
+    print("==== Check valid continuations after a complete exponent. ====")
+    constraints.current_function = "fn_add_numbers"
+    constraints.current_parameter = "a"
+    constraints.decoder.state = JSONState.EXPECT_EXPONENT_NUMBER
+
+    allowed = constraints.get_allowed_value_tokens()
+
+    for digit in "0123456789":
+        token_ids = constraints.tokenizer.encode(digit)
+        assert token_ids[0] in allowed, (
+            f"Missing token for digit {digit}"
+        )
+
+    for char in [".", "+", "-"]:
+        token_ids = constraints.tokenizer.encode(char)
+        assert token_ids[0] not in allowed, (
+            f"Unexpected token for {char!r}"
+        )
+
+
 def main() -> None:
     """Run token constraint tests."""
     model = Small_LLM_Model()
@@ -737,6 +894,12 @@ def main() -> None:
     test_reject_trailing_comma(constraints)
     test_nested_json_object(constraints)
     test_number_value_tokens(constraints)
+    test_fraction_value_tokens(constraints)
+    test_negative_number_value_tokens(constraints)
+    test_zero_value_tokens(constraints)
+    test_integer_value_tokens(constraints)
+    test_exponent_value_tokens(constraints)
+    test_exponent_number_tokens(constraints)
 
     print("\nTous les tests sont terminés.")
 

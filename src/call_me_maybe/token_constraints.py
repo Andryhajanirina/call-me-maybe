@@ -211,6 +211,41 @@ class TokenConstraints:
             return self.get_allowed_string_tokens()
 
         if parameter_type == "number":
+            if self.decoder.state == JSONState.EXPECT_FRACTION_DIGIT:
+                allowed = set()
+                for digit in "0123456789":
+                    token_ids = self.tokenizer.encode(digit)
+                    allowed.add(token_ids[0])
+                return allowed
+
+            if self.decoder.state == JSONState.EXPECT_ZERO_END:
+                allowed = set()
+                for char in [".", "e", "E"]:
+                    token_ids = self.tokenizer.encode(char)
+                    allowed.add(token_ids[0])
+                return allowed
+
+            if self.decoder.state == JSONState.VALUE_NUMBER:
+                allowed = set()
+                for char in "0123456789.eE":
+                    token_ids = self.tokenizer.encode(char)
+                    allowed.add(token_ids[0])
+                return allowed
+
+            if self.decoder.state == JSONState.EXPECT_EXPONENT_DIGIT:
+                allowed = set()
+                for digit in "0123456789":
+                    token_ids = self.tokenizer.encode(digit)
+                    allowed.add(token_ids[0])
+                return allowed
+
+            if self.decoder.state == JSONState.EXPECT_EXPONENT:
+                allowed = set()
+                for char in "+-0123456789":
+                    token_ids = self.tokenizer.encode(char)
+                    allowed.add(token_ids[0])
+                return allowed
+
             allowed = {12}
 
             for digit in "0123456789":
