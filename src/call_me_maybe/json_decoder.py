@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:40:38 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/18 10:49:53 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/20 16:16:27 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -36,9 +36,18 @@ class JSONDecoder:
         """
 
         if self.state == JSONState.DONE:
-            return False
+            # return False
+            return self.is_whitespace(char)
 
+        # if self.state == JSONState.START:
+        #     if char == "{":
+        #         self.object_stack.append("object")
+        #         self.state = JSONState.EXPECT_KEY_OR_END
+        #         return True
         if self.state == JSONState.START:
+            if self.is_whitespace(char):
+                return True
+
             if char == "{":
                 self.object_stack.append("object")
                 self.state = JSONState.EXPECT_KEY_OR_END

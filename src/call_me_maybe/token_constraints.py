@@ -210,12 +210,20 @@ class TokenConstraints:
         if parameter_type == "string":
             return self.get_allowed_string_tokens()
 
+        digit_states = {
+            JSONState.EXPECT_FRACTION_DIGIT,
+            JSONState.EXPECT_EXPONENT_DIGIT,
+            JSONState.EXPECT_EXPONENT_NUMBER,
+        }
+
         if parameter_type == "number":
-            if self.decoder.state == JSONState.EXPECT_FRACTION_DIGIT:
+            if self.decoder.state in digit_states:
                 allowed = set()
+
                 for digit in "0123456789":
                     token_ids = self.tokenizer.encode(digit)
                     allowed.add(token_ids[0])
+
                 return allowed
 
             if self.decoder.state == JSONState.EXPECT_ZERO_END:
@@ -232,24 +240,10 @@ class TokenConstraints:
                     allowed.add(token_ids[0])
                 return allowed
 
-            if self.decoder.state == JSONState.EXPECT_EXPONENT_DIGIT:
-                allowed = set()
-                for digit in "0123456789":
-                    token_ids = self.tokenizer.encode(digit)
-                    allowed.add(token_ids[0])
-                return allowed
-
             if self.decoder.state == JSONState.EXPECT_EXPONENT:
                 allowed = set()
                 for char in "+-0123456789":
                     token_ids = self.tokenizer.encode(char)
-                    allowed.add(token_ids[0])
-                return allowed
-
-            if self.decoder.state == JSONState.EXPECT_EXPONENT_NUMBER:
-                allowed = set()
-                for digit in "0123456789":
-                    token_ids = self.tokenizer.encode(digit)
                     allowed.add(token_ids[0])
                 return allowed
 

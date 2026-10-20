@@ -7,16 +7,16 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:44:03 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/15 10:19:49 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/20 15:35:49 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
 from .font_logo import LogoGenerator
-# from .main import main
+from .main import main
 # from .explore_vocab import main
 # from .test_schema import main
 
-from .test_token_constraints import main
+# from .test_token_constraints import main
 # from .test_tokenizer import main
 # from .test_json_context import main
 # from .test_json_decoder import main

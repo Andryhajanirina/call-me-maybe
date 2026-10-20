@@ -841,6 +841,111 @@ def test_exponent_number_tokens(
         )
 
 
+def test_process_function_name_token(
+    constraints: TokenConstraints,
+) -> None:
+    """Process a token belonging to a function name."""
+    print("==== Process a token belonging to a function name. ====")
+    constraints.decoder.state = JSONState.VALUE_CONTENT
+    constraints.current_key = "name"
+    constraints.current_function = None
+    constraints.function_name_tokens = []
+    constraints.reading_function_name = True
+
+    token_id = 8822  # Token representing 'fn'
+    constraints.process_token(token_id, [token_id])
+
+    assert constraints.function_name_tokens == [token_id]
+    assert constraints.reading_function_name is True
+    assert constraints.current_function is None
+
+
+def test_complete_function_name(
+    constraints: TokenConstraints,
+) -> None:
+    """Recognize a function after all its tokens are generated."""
+    print("==== Recognize a function after all its tokens are generated. ====")
+    name = "fn_greet"
+    tokens = constraints.encode_function_names()[name]
+
+    constraints.current_function = None
+    constraints.function_name_tokens = []
+
+    for token_id in tokens:
+        constraints.function_name_tokens.append(token_id)
+        constraints.update_current_function(
+            constraints.function_name_tokens
+        )
+
+    assert constraints.current_function == name
+
+
+def test_process_complete_function_name(
+    constraints: TokenConstraints,
+) -> None:
+    """Recognize a function through process_token."""
+    print("==== Recognize a function through process_token. ====")
+    name = "fn_greet"
+    tokens = constraints.encode_function_names()[name]
+
+    constraints.decoder.state = JSONState.VALUE_CONTENT
+    constraints.current_key = "name"
+    constraints.current_function = None
+    constraints.function_name_tokens = []
+    constraints.reading_function_name = True
+
+    for token_id in tokens:
+        constraints.process_token(token_id, [])
+
+    assert constraints.current_function == name
+
+
+def test_get_current_parameter_type(
+    constraints: TokenConstraints,
+) -> None:
+    """Return the type of the current function parameter."""
+    print("==== Return the type of the current function parameter. ====")
+    constraints.current_function = "fn_greet"
+    constraints.current_parameter = "name"
+
+    parameter_type = constraints.get_current_parameter_type()
+
+    assert parameter_type == "string"
+
+
+def test_allowed_tokens_for_string_parameter(
+    constraints: TokenConstraints,
+) -> None:
+    """Allow JSON string-start tokens for a string parameter."""
+    print("==== Allow JSON string-start tokens for a string parameter. ====")
+    constraints.current_function = "fn_greet"
+    constraints.current_parameter = "name"
+    constraints.decoder.state = JSONState.EXPECT_VALUE_START
+
+    constraints.build_string_start_tokens()
+
+    allowed = constraints.get_allowed_value_tokens()
+
+    assert allowed
+    assert 1 in allowed
+
+
+def test_allowed_tokens_for_number_parameter(
+    constraints: TokenConstraints,
+) -> None:
+    """Allow number-starting tokens for a numeric parameter."""
+    print("==== Allow number-starting tokens for a numeric parameter. ====")
+    constraints.current_function = "fn_add_numbers"
+    constraints.current_parameter = "a"
+    constraints.decoder.state = JSONState.EXPECT_VALUE_START
+
+    allowed = constraints.get_allowed_value_tokens()
+
+    assert allowed
+    assert 12 in allowed
+    assert constraints.tokenizer.encode("5")[0] in allowed
+
+
 def main() -> None:
     """Run token constraint tests."""
     model = Small_LLM_Model()
@@ -900,6 +1005,12 @@ def main() -> None:
     test_integer_value_tokens(constraints)
     test_exponent_value_tokens(constraints)
     test_exponent_number_tokens(constraints)
+    test_process_function_name_token(constraints)
+    test_complete_function_name(constraints)
+    test_process_complete_function_name(constraints)
+    test_get_current_parameter_type(constraints)
+    test_allowed_tokens_for_string_parameter(constraints)
+    test_allowed_tokens_for_number_parameter(constraints)
 
     print("\nTous les tests sont terminés.")
 
