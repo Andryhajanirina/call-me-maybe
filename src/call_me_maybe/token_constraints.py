@@ -246,6 +246,13 @@ class TokenConstraints:
                     allowed.add(token_ids[0])
                 return allowed
 
+            if self.decoder.state == JSONState.EXPECT_EXPONENT_NUMBER:
+                allowed = set()
+                for digit in "0123456789":
+                    token_ids = self.tokenizer.encode(digit)
+                    allowed.add(token_ids[0])
+                return allowed
+
             allowed = {12}
 
             for digit in "0123456789":
