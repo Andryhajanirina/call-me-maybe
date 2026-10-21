@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:40:38 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/20 16:16:27 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/21 11:58:33 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -21,13 +21,6 @@ class JSONDecoder:
         self.escape_next = False
         self.unicode_escape_remaining = 0
 
-    # def my_isdigit(value):
-    #     try:
-    #         float(value)
-    #         return True
-    #     except ValueError:
-    #         return False
-
     def consume_char(self, char: str) -> bool:
         """
         Consume one character.
@@ -36,14 +29,8 @@ class JSONDecoder:
         """
 
         if self.state == JSONState.DONE:
-            # return False
             return self.is_whitespace(char)
 
-        # if self.state == JSONState.START:
-        #     if char == "{":
-        #         self.object_stack.append("object")
-        #         self.state = JSONState.EXPECT_KEY_OR_END
-        #         return True
         if self.state == JSONState.START:
             if self.is_whitespace(char):
                 return True

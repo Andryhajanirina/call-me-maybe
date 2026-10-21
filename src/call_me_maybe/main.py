@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/20 16:07:17 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/21 11:59:43 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -117,10 +117,6 @@ def main() -> None:
     result = generate_text(model, instruction)
     print("Prompt:", prompt)
     print("Generated:", result)
-
-    # print("Functions:", schema.get_function_names())
-    # print("Prompts loaded:", len(prompts))
-    # print("Model loaded:", model is not None)
 
 
 if __name__ == "__main__":
