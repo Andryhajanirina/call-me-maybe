@@ -7,14 +7,15 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/21 11:59:43 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/21 15:44:59 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
 import json
 from pathlib import Path
+from typing import cast
 
-from llm_sdk import Small_LLM_Model  # type: ignore
+from llm_sdk import Small_LLM_Model
 
 from .function_schema import FunctionSchema
 from .parsing import parse_args
@@ -22,6 +23,7 @@ from .models import TestInput
 from .token_constraints import TokenConstraints
 from .json_decoder import JSONDecoder
 from .json_state import JSONState
+from pydantic import ValidationError
 
 
 def load_prompts(path: str) -> list[TestInput]:
@@ -84,7 +86,7 @@ def generate_text(
         if decoder.state == JSONState.DONE:
             break
 
-    return model.decode(generated)
+    return cast(str, model.decode(generated))
 
 
 def main() -> None:

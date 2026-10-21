@@ -7,12 +7,14 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/09/07 11:41:32 by andry-ha            #+#    #+#            #
-#   Updated: 2026/09/13 10:55:52 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/21 15:11:29 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
+import os
 import pyfiglet
 import subprocess
+from typing import cast
 
 
 class LogoGenerator:
@@ -50,7 +52,7 @@ class LogoGenerator:
         print(color_code + ascii_art + reset_code)
 
     @classmethod
-    def _get_cleaned_lines(cls, text: str, font: str) -> list:
+    def _get_cleaned_lines(cls, text: str, font: str) -> list[str]:
         """Generates the text and cleans up empty lines at the top/bottom"""
         try:
             ascii_art = pyfiglet.figlet_format(text, font=font)
@@ -62,7 +64,7 @@ class LogoGenerator:
             lines.pop(0)
         while lines and not lines[-1].strip():
             lines.pop(-1)
-        return lines
+        return cast(list[str], lines)
 
     @classmethod
     def print_two_tone_logo(cls,
@@ -73,7 +75,7 @@ class LogoGenerator:
                             width: int = 50) -> None:
         """Displays logo composed of two text segments in different colors."""
 
-        command = 'cls' if subprocess.os.name == 'nt' else 'clear'
+        command = 'cls' if os.name == 'nt' else 'clear'
         subprocess.run(command, shell=True)
 
         lines1 = cls._get_cleaned_lines(text1, font)

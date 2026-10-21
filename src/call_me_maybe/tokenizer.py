@@ -7,14 +7,14 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/10/13 14:14:22 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/14 14:02:41 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/21 15:02:42 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
 import json
 import regex
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 class Tokenizer:
@@ -184,7 +184,7 @@ class Tokenizer:
             r"\s+(?!\S)|"
             r"\s+"
         )
-        return regex.findall(pattern, text)
+        return cast(list[str], regex.findall(pattern, text))
 
     def tokenize_to_pieces(self, text: str) -> list[str]:
         """Convert text into ByteLevel BPE pieces."""

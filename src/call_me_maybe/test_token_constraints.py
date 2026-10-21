@@ -38,7 +38,10 @@ def test_string_content(
     constraints: TokenConstraints,
 ) -> None:
     """Test allowed tokens inside a string."""
+    constraints.current_function = "fn_greet"
+    constraints.current_parameter = "name"
     constraints.decoder.state = JSONState.VALUE_CONTENT
+    constraints.decoder.object_stack = ["object"]
 
     allowed = constraints.get_allowed_value_tokens()
 
@@ -47,6 +50,14 @@ def test_string_content(
     print("And :", 3036 in allowed)
     print("Guillemet :", 1 in allowed)
 
+    for token_id in (884, 3036, 1):
+        token_text = constraints.get_token_text(token_id)
+        print(
+            f"ID={token_id}, "
+            f"text={token_text!r}, "
+            f"state={constraints.decoder.state}, "
+            f"valid={constraints.decoder.is_token_valid(token_text)}"
+        )
     assert 884 in allowed
     assert 3036 in allowed
     assert 1 in allowed

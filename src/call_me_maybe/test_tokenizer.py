@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/10/13 14:29:47 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/14 13:24:43 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/21 15:05:30 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -16,7 +16,7 @@ from call_me_maybe.tokenizer import Tokenizer
 from llm_sdk import Small_LLM_Model
 
 
-def inspect_tokenizer_files(model: Small_LLM_Model) -> None:
+def test_inspect_tokenizer_files(model: Small_LLM_Model) -> None:
     """Inspect the tokenizer configuration and BPE merges."""
     tokenizer_path = model.get_path_to_tokenizer_file()
     merges_path = model.get_path_to_merges_file()
@@ -433,9 +433,9 @@ def test_decode_unknown_id(model: Small_LLM_Model) -> None:
     print("Test ID inconnu réussi.")
 
 
-def main():
+def main() -> None:
     model = Small_LLM_Model()
-    # inspect_tokenizer_files(model)
+    # test_inspect_tokenizer_files(model)
     # test_tokenizer_loading(model)
     # test_tokenizer_merges(model)
     # test_merge_ranks(model)

@@ -4,25 +4,6 @@ from call_me_maybe.json_decoder import JSONDecoder
 
 def test_nested_object() -> None:
     decoder = JSONDecoder()
-    # tokens = [
-    #     "{",
-    #     '"name"',
-    #     ":",
-    #     '"fn_add_numbers"',
-    #     ",",
-    #     '"parameters"',
-    #     ":",
-    #     "{",
-    #     '"a"',
-    #     ":",
-    #     '"number"',
-    #     ",",
-    #     '"b"',
-    #     ":",
-    #     '"number"',
-    #     "}",
-    #     "}"
-    # ]
     tokens = [
         "{",
         '"a"',
@@ -36,7 +17,7 @@ def test_nested_object() -> None:
     ]
 
     for token in tokens:
-        result = decoder.consume_token(token)
+        result = decoder.consume_text(token)
         print(
             f"{token!r:20} -> {result} -> {decoder.state}"
         )
@@ -62,7 +43,7 @@ def test_json_with_spaces() -> None:
     ]
 
     for token in tokens:
-        result = decoder.consume_token(token)
+        result = decoder.consume_text(token)
         print(
             f"{token!r:20} -> {result} -> {decoder.state}"
         )
@@ -132,7 +113,7 @@ def test_after_done() -> None:
     ]
 
     for token in tokens:
-        assert decoder.consume_token(token) is True
+        assert decoder.consume_text(token) is True
 
     print("State after valid JSON:", decoder.state)
 
@@ -241,57 +222,6 @@ def test_invalid_number_space_digit() -> None:
 
 
 def main() -> None:
-    # print("=== Test sans espaces ===")
-    # test_nested_object()
-
-    # print("\n=== Test avec espaces ===")
-    # test_json_with_spaces()
-
-    # print("\n=== Test espaces ===")
-    # test_whitespace()
-
-    # print("\n=== Test nombre invalide avec espace ===")
-    # test_invalid_number_with_space()
-
-    # print("\n=== Test token partiellement invalide ===")
-    # test_partial_invalid_token()
-
-    # print("\n=== Test après DONE ===")
-    # test_after_done()
-
-    # print("\n=== Test espaces après une chaîne ===")
-    # test_spaces_after_string()
-
-    # print("\n=== Test token multi-caractères ===")
-    # test_multi_character_token()
-
-    # # ==========================
-    # print("\n=== Test number followed by space or comma, invalid number ===")
-    # test_number_followed_by_space()
-    # test_number_followed_by_comma()
-    # test_invalid_number_space_digit()
-
-    # tests = [
-    #     ['{', '"a"', ':', '265', '}'],
-    #     ['{', '"a"', ' ', ':', '265', '}'],
-    #     ['{', '"a"', ':', ' ', '265', '}'],
-    #     ['{', '"a"', ' ', ':', ' ', '265', '}'],
-    # ]
-
-    # for tokens in tests:
-    #     decoder = JSONDecoder()
-    #     for token in tokens:
-    #         result = decoder.consume_token(token)
-    #         print(
-    #             repr(token),
-    #             "->",
-    #             result,
-    #             "->",
-    #             decoder.state,
-    #             "stack:",
-    #             decoder.object_stack,
-    #         )
-
     tokens = [
         '{', '"a"', ':', '0',
         ',', '"b"', ':', '5',

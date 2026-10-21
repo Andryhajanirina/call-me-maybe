@@ -14,3 +14,7 @@ Update json_state.py
 test_token_constraints.py (interdire les zéros initiaux invalides #test_reject_leading_zero)
 json_decoder.py
 token_constraints.py
+
+21/10/2026
+Creation de conftest.py
+Send json_decoder.py, test_token_constraints.py, Makefile, tokenizer.py, pyproject.toml, models.py to CHAT-GPT

@@ -6,7 +6,8 @@ MAIN_SCRIPT = call-me-maybe
 FUNCTIONS = data/input/functions_definition.json
 INPUT = data/input/function_calling_tests.json
 OUTPUT = data/output/function_calling_results.json
-GOINFRE       = $(HOME)/goinfre
+# GOINFRE       = $(HOME)/goinfre
+GOINFRE       = /goinfre/andry-ha
 CACHE         = .cache
 GOINFRE_VENV  = $(GOINFRE)/venvs/$(shell basename $(CURDIR))
 GOINFRE_CACHE = $(GOINFRE)/$(CACHE)/uv
@@ -23,6 +24,7 @@ export HF_HOME
 export UV_CACHE_DIR
 export UV_PYTHON_PREFERENCE
 
+MYPYPATH    := llm_sdk
 MYPY_FLAGS  := --exclude=$(VENV) --exclude='llm_sdk' --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
 
 GREEN       := \033[0;32m
@@ -174,7 +176,7 @@ lint:
 # 	$(VENV)/bin/flake8 . --exclude=$(VENV)
 	$(VENV)/bin/flake8 src --exclude=src/call_me_maybe/backup
 	@echo "$(INFO_BOLD)🔍 [Mypy] Static type analysis (Standard mode)...$(RESET)"
-	$(VENV)/bin/mypy src $(MYPY_FLAGS)
+	MYPYPATH=$(MYPYPATH) $(VENV)/bin/mypy src $(MYPY_FLAGS)
 
 # ==============================================================================
 # lint-strict - Enhanced verification method with (Flake8 and Mypy --strict)
@@ -185,4 +187,4 @@ lint-strict:
 # 	$(VENV)/bin/flake8 . --exclude=$(VENV)
 	$(VENV)/bin/flake8 src --exclude=src/call_me_maybe/backup
 	@echo "$(INFO_BOLD)🔍 [Mypy] Static type analysis (Strict mode)...$(RESET)"
-	$(VENV)/bin/mypy src --strict $(MYPY_FLAGS)
+	MYPYPATH=$(MYPYPATH) $(VENV)/bin/mypy src --strict $(MYPY_FLAGS)

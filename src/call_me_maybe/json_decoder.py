@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:40:38 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/21 11:58:33 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/21 14:48:25 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -281,12 +281,8 @@ class JSONDecoder:
                 return True
         return False
 
-    def consume_token(self, token: str) -> bool:
-        """
-        Consume a complete tokenizer token.
-
-        Returns True if the complete token is valid.
-        """
+    def consume_text(self, token: str) -> bool:
+        """Consume text and restore the state if it is invalid."""
         original_state = self.state
         original_stack = self.object_stack.copy()
         original_escape_next = self.escape_next
@@ -304,12 +300,48 @@ class JSONDecoder:
                 )
                 return False
 
-        self.state = original_state
-        self.object_stack = original_stack
-        self.escape_next = original_escape_next
-        self.unicode_escape_remaining = original_unicode_escape_remaining
+        return True
+
+    def consume_token(self, token: str) -> bool:
+        """Consume a complete token, but roll back incomplete escapes."""
+        original_state = self.state
+        original_stack = self.object_stack.copy()
+        original_escape_next = self.escape_next
+        original_unicode_escape_remaining = (
+            self.unicode_escape_remaining
+        )
+
+        if not self.consume_text(token):
+            return False
+
+        if self.escape_next or self.unicode_escape_remaining:
+            self.state = original_state
+            self.object_stack = original_stack
+            self.escape_next = original_escape_next
+            self.unicode_escape_remaining = (
+                original_unicode_escape_remaining
+            )
 
         return True
+
+    def is_token_valid(self, token: str) -> bool:
+        """Check a token without changing the decoder state."""
+        original_state = self.state
+        original_stack = self.object_stack.copy()
+        original_escape_next = self.escape_next
+        original_unicode_escape_remaining = (
+            self.unicode_escape_remaining
+        )
+
+        try:
+            return self.consume_text(token)
+        finally:
+            self.state = original_state
+            self.object_stack = original_stack
+            self.escape_next = original_escape_next
+            self.unicode_escape_remaining = (
+                original_unicode_escape_remaining
+            )
 
     def is_whitespace(self, char: str) -> bool:
         return char in (" ", "\t", "\n", "\r")

@@ -1,5 +1,5 @@
 import json
-from typing import Any, Optional
+from typing import cast
 
 
 def load_data(file: str) -> list[dict]:
@@ -12,10 +12,10 @@ def load_data(file: str) -> list[dict]:
         raise ValueError("Permission denied")
     except FileNotFoundError:
         raise ValueError(f"File not found '{file}'")
-    return data
+    return cast(list[dict], data)
 
 
-def main():
+def main() -> None:
     print("=== TESTING PROMPT ===")
     prompts = load_data("../../data/input/function_calling_tests.json")
     fn_names = load_data("../../data/input/functions_definition.json")
