@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/22 13:14:37 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/22 16:21:13 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -39,7 +39,8 @@ def generate_text(
     model: Small_LLM_Model,
     prompt: str,
     constraints: TokenConstraints,
-    max_new_tokens: int = 200,
+    # max_new_tokens: int = 200,
+    max_new_tokens: int = 30,
 ) -> str:
     """Generate JSON while constraining tokens to valid choices."""
     input_ids = model.encode(prompt).tolist()[0]
@@ -78,6 +79,7 @@ def generate_text(
         elif (
             state == JSONState.VALUE_CONTENT
             and constraints.current_key == "name"
+            and constraints.reading_function_name
         ):
             allowed = constraints.get_allowed_next_tokens(
                 constraints.function_name_tokens
@@ -91,7 +93,8 @@ def generate_text(
         # Valeur textuelle d'un autre champ.
         elif (
             state == JSONState.VALUE_CONTENT
-            and constraints.current_key != "name"
+            and not constraints.reading_function_name
+            # and constraints.current_key != "name"
         ):
             allowed = constraints.get_allowed_string_tokens()
 
@@ -147,12 +150,23 @@ def generate_text(
                 if function is None:
                     allowed = set()
                 else:
-                    # Première étape : autoriser l'ouverture d'une clé.
+                    missing_parameters = (
+                        set(function.parameters)
+                        - constraints.used_parameters
+                    )
+
                     allowed = {
                         token_id
                         for token_id in constraints.vocab_token_ids
                         if constraints.get_token_text(token_id).strip() == '"'
                     }
+                    if missing_parameters:
+                        allowed = {
+                            token_id
+                            for token_id in allowed
+                            if constraints.get_token_text(token_id).strip()
+                            != "}"
+                        }
         # Autres états du décodeur JSON.
         else:
             allowed = {
@@ -213,23 +227,42 @@ def main() -> None:
     allowed = constraints.get_allowed_first_function_tokens()
     print("Tokens autorisés pour commencer un nom :", allowed)
 
-    prompt = prompts[0].prompt
-    instruction = (
-        "You are a function-calling assistant. "
-        "Available functions: fn_add_numbers(a, b), "
-        "fn_greet(name), fn_reverse_string(s), "
-        "fn_get_square_root(a), "
-        "fn_substitute_string_with_regex("
-        "source_string, regex, replacement). "
-        "Return only a JSON object with keys "
-        '"name" and "parameters". '
-        f"User request: {prompt}\nJSON:"
-    )
+    # prompt = prompts[0].prompt
+    # prompt = prompts[3].prompt
+    # instruction = (
+    #     "You are a function-calling assistant. "
+    #     "Available functions: fn_add_numbers(a, b), "
+    #     "fn_greet(name), fn_reverse_string(s), "
+    #     "fn_get_square_root(a), "
+    #     "fn_substitute_string_with_regex("
+    #     "source_string, regex, replacement). "
+    #     "Return only a JSON object with keys "
+    #     '"name" and "parameters". '
+    #     f"User request: {prompt}\nJSON:"
+    # )
 
-    # result = generate_text(model, instruction)
-    result = generate_text(model, instruction, constraints)
-    print("Prompt:", prompt)
-    print("Generated:", result)
+    # # result = generate_text(model, instruction)
+    # result = generate_text(model, instruction, constraints)
+    # print("Prompt:", prompt)
+    # print("Generated:", result)
+    for i in range(len(prompts)):
+        prompt = prompts[i].prompt
+        instruction = (
+            "You are a function-calling assistant. "
+            "Available functions: fn_add_numbers(a, b), "
+            "fn_greet(name), fn_reverse_string(s), "
+            "fn_get_square_root(a), "
+            "fn_substitute_string_with_regex("
+            "source_string, regex, replacement). "
+            "Return only a JSON object with keys "
+            '"name" and "parameters". '
+            f"User request: {prompt}\nJSON:"
+        )
+
+        # result = generate_text(model, instruction)
+        result = generate_text(model, instruction, constraints)
+        print("Prompt:", prompt)
+        print("Generated:", result)
 
 
 if __name__ == "__main__":

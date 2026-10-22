@@ -168,14 +168,13 @@ class TokenConstraints:
 
                     if self.current_key == "parameters":
                         self.reading_parameters = True
+                        self.used_parameters = set()
 
                     elif self.reading_parameters:
                         self.current_parameter = self.current_key
+                        self.used_parameters.add(self.current_key)
 
-                    print(
-                        "Completed key:",
-                        self.current_key
-                    )
+                    print("Completed key:", self.current_key)
                 else:
                     self.context.add_key_character(char)
 
@@ -204,7 +203,8 @@ class TokenConstraints:
         self.process_token_text(token_text)
 
         if (
-            self.current_key == "name"
+            self.current_function is None
+            and self.current_key == "name"
             and self.decoder.state == JSONState.VALUE_CONTENT
         ):
             self.reading_function_name = True
@@ -256,9 +256,18 @@ class TokenConstraints:
 
             if self.decoder.state == JSONState.VALUE_NUMBER:
                 allowed = set()
-                for char in "0123456789.eE":
-                    token_ids = self.tokenizer.encode(char)
-                    allowed.add(token_ids[0])
+                # for char in "0123456789.eE":
+                #     token_ids = self.tokenizer.encode(char)
+                #     allowed.add(token_ids[0])
+                for token_id in self.vocab_token_ids:
+                    token_text = self.get_token_text(token_id)
+
+                    if not token_text or token_text == "}":
+                        continue
+
+                    if self.decoder.is_token_valid(token_text):
+                        allowed.add(token_id)
+
                 return allowed
 
             if self.decoder.state == JSONState.EXPECT_EXPONENT:
@@ -267,6 +276,16 @@ class TokenConstraints:
                     token_ids = self.tokenizer.encode(char)
                     allowed.add(token_ids[0])
                 return allowed
+
+            if self.decoder.state == JSONState.EXPECT_EXPONENT_NUMBER:
+                return {
+                    token_id
+                    for token_id in self.vocab_token_ids
+                    if self.get_token_text(token_id).strip() in {
+                        "0", "1", "2", "3", "4",
+                        "5", "6", "7", "8", "9",
+                    }
+                }
 
             allowed = {12}
 
