@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/22 13:02:49 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/22 13:14:37 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -54,6 +54,7 @@ def generate_text(
     constraints.function_name_tokens = []
     constraints.reading_function_name = False
     constraints.reading_parameters = False
+    constraints.used_parameters = set()
 
     for _ in range(max_new_tokens):
         logits = model.get_logits_from_input_ids(input_ids)

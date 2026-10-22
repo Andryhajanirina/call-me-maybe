@@ -41,6 +41,7 @@ class TokenConstraints:
             self.tokenizer.id_to_token.keys()
         )
         self.build_string_start_tokens()
+        self.used_parameters: set[str] = set()
 
     def encode_function_names(self) -> dict[str, list[int]]:
         """Encode all available function names into token ID lists.
