@@ -7,13 +7,13 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/21 15:44:59 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/22 13:02:49 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
 import json
 from pathlib import Path
-from typing import cast
+# from typing import cast
 
 from llm_sdk import Small_LLM_Model
 
@@ -22,8 +22,9 @@ from .parsing import parse_args
 from .models import TestInput
 from .token_constraints import TokenConstraints
 from .json_decoder import JSONDecoder
+from .json_context import JSONContext
 from .json_state import JSONState
-from pydantic import ValidationError
+# from pydantic import ValidationError
 
 
 def load_prompts(path: str) -> list[TestInput]:
@@ -37,56 +38,164 @@ def load_prompts(path: str) -> list[TestInput]:
 def generate_text(
     model: Small_LLM_Model,
     prompt: str,
-    max_new_tokens: int = 100,
+    constraints: TokenConstraints,
+    max_new_tokens: int = 200,
 ) -> str:
-    """Generate text and debug JSON decoding."""
+    """Generate JSON while constraining tokens to valid choices."""
     input_ids = model.encode(prompt).tolist()[0]
     generated: list[int] = []
-    decoder = JSONDecoder()
-    eos_token_id = model._tokenizer.eos_token_id
+
+    # Réinitialiser l'état pour cette génération.
+    constraints.decoder = JSONDecoder()
+    constraints.context = JSONContext()
+    constraints.current_function = None
+    constraints.current_key = ""
+    constraints.current_parameter = None
+    constraints.function_name_tokens = []
+    constraints.reading_function_name = False
+    constraints.reading_parameters = False
 
     for _ in range(max_new_tokens):
         logits = model.get_logits_from_input_ids(input_ids)
-        next_id = max(range(len(logits)), key=logits.__getitem__)
+        allowed: set[int] = set()
 
-        if next_id == eos_token_id:
-            break
+        state = constraints.decoder.state
 
-        token_text = model.decode([next_id])
-        if isinstance(token_text, list):
-            token_text = "".join(token_text)
+        # Début de la valeur de "name".
+        if (
+            state == JSONState.EXPECT_VALUE_START
+            and constraints.current_key == "name"
+        ):
+            # allowed = constraints.get_allowed_string_tokens()
+            allowed = {
+                token_id
+                for token_id in constraints.vocab_token_ids
+                if constraints.get_token_text(token_id) == '"'
+            }
 
-        print("Token ID:", next_id)
-        print("Token text:", repr(token_text))
-        print("Decoder state before:", decoder.state)
+        # Génération du nom de fonction.
+        elif (
+            state == JSONState.VALUE_CONTENT
+            and constraints.current_key == "name"
+        ):
+            allowed = constraints.get_allowed_next_tokens(
+                constraints.function_name_tokens
+            )
 
-        valid = True
-        for char in token_text:
-            try:
-                result = decoder.consume_char(char)
+            if constraints.is_complete_function_name(
+                constraints.function_name_tokens
+            ):
+                allowed.add(1)  # ID du guillemet fermant, à vérifier.
+
+        # Valeur textuelle d'un autre champ.
+        elif (
+            state == JSONState.VALUE_CONTENT
+            and constraints.current_key != "name"
+        ):
+            allowed = constraints.get_allowed_string_tokens()
+
+        # Début de l'objet "parameters".
+        elif (
+            state == JSONState.EXPECT_VALUE_START
+            and constraints.current_key == "parameters"
+        ):
+            allowed = {
+                token_id
+                for token_id in constraints.vocab_token_ids
+                if constraints.get_token_text(token_id).strip() == "{"
+            }
+
+        # Valeurs de paramètres et nombres.
+        elif state in (
+            JSONState.EXPECT_VALUE_START,
+            JSONState.EXPECT_NUMBER_DIGIT,
+            JSONState.EXPECT_ZERO_END,
+            JSONState.VALUE_NUMBER,
+            JSONState.EXPECT_FRACTION_DIGIT,
+            JSONState.EXPECT_EXPONENT,
+            JSONState.EXPECT_EXPONENT_DIGIT,
+            JSONState.EXPECT_EXPONENT_NUMBER,
+        ):
+            # Cette branche suppose qu'une fonction et un paramètre
+            # ont déjà été identifiés.
+            if constraints.current_function is None:
                 print(
-                    "Character:", repr(char),
-                    "Valid:", result,
-                    "State:", decoder.state,
+                    "Erreur : fonction non identifiée.",
+                    "État :", state,
+                    "Clé :", constraints.current_key,
                 )
-                if not result:
-                    valid = False
-                    break
-            except Exception as error:
-                print("Decoder exception:", repr(error))
-                valid = False
                 break
 
-        if not valid:
+            allowed = constraints.get_allowed_value_tokens()
+
+        # Clés de l'objet "parameters".
+        elif (
+            state in (
+                JSONState.EXPECT_KEY_OR_END,
+                JSONState.EXPECT_KEY_START,
+            )
+            and constraints.reading_parameters
+        ):
+            if constraints.current_function is None:
+                allowed = set()
+            else:
+                function = constraints.schema.get_function(
+                    constraints.current_function
+                )
+
+                if function is None:
+                    allowed = set()
+                else:
+                    # Première étape : autoriser l'ouverture d'une clé.
+                    allowed = {
+                        token_id
+                        for token_id in constraints.vocab_token_ids
+                        if constraints.get_token_text(token_id).strip() == '"'
+                    }
+        # Autres états du décodeur JSON.
+        else:
+            allowed = {
+                token_id
+                for token_id in constraints.vocab_token_ids
+                if constraints.is_token_valid(token_id)
+            }
+
+        # Filtrer les identifiants qui dépassent les logits.
+        allowed = {
+            token_id
+            for token_id in allowed
+            if 0 <= token_id < len(logits)
+        }
+
+        if not allowed:
+            print(
+                "Aucun token autorisé.",
+                "État :", state,
+                "Clé :", constraints.current_key,
+                "Fonction :", constraints.current_function,
+            )
             break
+
+        constrained_logits = constraints.apply_token_constraint(
+            logits,
+            allowed,
+        )
+
+        next_id = max(
+            allowed,
+            key=lambda token_id: constrained_logits[token_id],
+        )
 
         generated.append(next_id)
         input_ids.append(next_id)
 
-        if decoder.state == JSONState.DONE:
-            break
+        # Le token est consommé ici une seule fois.
+        constraints.process_token(next_id, generated)
 
-    return cast(str, model.decode(generated))
+        if constraints.decoder.state == JSONState.DONE:
+            break
+    # return cast(str, model.decode(generated))
+    return model.decode(generated)
 
 
 def main() -> None:
@@ -116,7 +225,8 @@ def main() -> None:
         f"User request: {prompt}\nJSON:"
     )
 
-    result = generate_text(model, instruction)
+    # result = generate_text(model, instruction)
+    result = generate_text(model, instruction, constraints)
     print("Prompt:", prompt)
     print("Generated:", result)
 

@@ -1,5 +1,4 @@
 import argparse
-# Mbola tsy miasa
 
 
 def parse_args() -> argparse.Namespace:
