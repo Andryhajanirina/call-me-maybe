@@ -132,16 +132,31 @@ class TokenConstraints:
         if name is not None:
             self.current_function = name
 
+    # def get_current_parameter_type(self) -> str | None:
+    #     function = self.schema.get_function(
+    #         self.current_function
+    #     )
+    #     parameter = function.parameters[
+    #         self.current_parameter
+    #     ]
+    #     print("Current function:", function.name)
+    #     print("Current parameter:", self.current_parameter)
+    #     print("Type parameter:", parameter.type)
+    #     return parameter.type
     def get_current_parameter_type(self) -> str | None:
-        function = self.schema.get_function(
-            self.current_function
-        )
-        parameter = function.parameters[
-            self.current_parameter
-        ]
-        print("Current function:", function.name)
-        print("Current parameter:", self.current_parameter)
-        print("Type parameter:", parameter.type)
+        if self.current_function is None or self.current_parameter is None:
+            return None
+
+        function = self.schema.get_function(self.current_function)
+
+        if function is None:
+            return None
+
+        parameter = function.parameters.get(self.current_parameter)
+
+        if parameter is None:
+            return None
+
         return parameter.type
 
     def process_token_text(self, token_text: str) -> None:
