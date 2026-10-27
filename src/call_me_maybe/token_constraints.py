@@ -206,15 +206,15 @@ class TokenConstraints:
         generated_tokens: list[int],
     ) -> None:
         token_text = self.get_token_text(token_id)
-        print(
-            "\n[DEBUG process_token]",
-            "token_id =", token_id,
-            "token_text =", repr(token_text),
-            "state_before =", self.decoder.state,
-            "current_key =", repr(self.current_key),
-            "function_name_tokens_before =", self.function_name_tokens,
-            "reading_function_name_before =", self.reading_function_name,
-        )
+        # print(
+        #     "\n[DEBUG process_token]",
+        #     "token_id =", token_id,
+        #     "token_text =", repr(token_text),
+        #     "state_before =", self.decoder.state,
+        #     "current_key =", repr(self.current_key),
+        #     "function_name_tokens_before =", self.function_name_tokens,
+        #     "reading_function_name_before =", self.reading_function_name,
+        # )
         self.process_token_text(token_text)
 
         if (
@@ -231,14 +231,14 @@ class TokenConstraints:
                 self.function_name_tokens.append(token_id)
 
         self.update_current_function(self.function_name_tokens)
-        print(
-            "[DEBUG process_token après]",
-            "state_after =", self.decoder.state,
-            "current_key =", repr(self.current_key),
-            "function_name_tokens_after =", self.function_name_tokens,
-            "current_function =", self.current_function,
-            "reading_function_name_after =", self.reading_function_name,
-        )
+        # print(
+        #     "[DEBUG process_token après]",
+        #     "state_after =", self.decoder.state,
+        #     "current_key =", repr(self.current_key),
+        #     "function_name_tokens_after =", self.function_name_tokens,
+        #     "current_function =", self.current_function,
+        #     "reading_function_name_after =", self.reading_function_name,
+        # )
 
     def get_allowed_value_tokens(self) -> set[int]:
         parameter_type = self.get_current_parameter_type()

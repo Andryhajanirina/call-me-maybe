@@ -27,3 +27,14 @@ source ~/.bashrc
 ### COMMAND POUR INSTALLER mypy et flake8 avec la version python 3.10
 ```Bash
 uv add mypy --python 3.10
+
+
+# GOINFRE
+export HF_HOME="$HOME/goinfre/.cache/huggingface"
+export HUGGINGFACE_HUB_CACHE="$HF_HOME/hub"
+export UV_CACHE_DIR="$HOME/goinfre/.cache/uv"
+
+mkdir -p "$HF_HOME" "$UV_CACHE_DIR"
+
+echo "HF_HOME=$HF_HOME"
+df -h "$HOME" "$HOME/goinfre"

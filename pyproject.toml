@@ -26,6 +26,7 @@ dev = [
     "flake8>=7.3.0",
     "mypy>=2.3.1",
     "pytest>=9.1.1",
+    "types-regex>=2026.9.29.20261017",
 ]
 
 [tool.uv.workspace]
