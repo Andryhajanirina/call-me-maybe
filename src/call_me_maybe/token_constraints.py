@@ -240,20 +240,110 @@ class TokenConstraints:
         #     "reading_function_name_after =", self.reading_function_name,
         # )
 
+    # def get_allowed_value_tokens(self) -> set[int]:
+    #     parameter_type = self.get_current_parameter_type()
+
+    #     if parameter_type == "string":
+    #         return self.get_allowed_string_tokens()
+
+    #     digit_states = {
+    #         JSONState.EXPECT_FRACTION_DIGIT,
+    #         JSONState.EXPECT_EXPONENT_DIGIT,
+    #         JSONState.EXPECT_EXPONENT_NUMBER,
+    #     }
+
+    #     if parameter_type == "number":
+    #         if self.decoder.state in digit_states:
+    #             allowed = set()
+
+    #             for digit in "0123456789":
+    #                 token_ids = self.tokenizer.encode(digit)
+    #                 allowed.add(token_ids[0])
+
+    #             return allowed
+
+    #         if self.decoder.state == JSONState.EXPECT_ZERO_END:
+    #             allowed = set()
+    #             for char in [".", "e", "E"]:
+    #                 token_ids = self.tokenizer.encode(char)
+    #                 allowed.add(token_ids[0])
+    #             return allowed
+
+    #         if self.decoder.state == JSONState.VALUE_NUMBER:
+    #             allowed = set()
+    #             # for char in "0123456789.eE":
+    #             #     token_ids = self.tokenizer.encode(char)
+    #             #     allowed.add(token_ids[0])
+    #             for token_id in self.vocab_token_ids:
+    #                 token_text = self.get_token_text(token_id)
+
+    #                 if not token_text or token_text == "}":
+    #                     continue
+
+    #                 if self.decoder.is_token_valid(token_text):
+    #                     allowed.add(token_id)
+
+    #             return allowed
+
+    #         if self.decoder.state == JSONState.EXPECT_EXPONENT:
+    #             allowed = set()
+    #             for char in "+-0123456789":
+    #                 token_ids = self.tokenizer.encode(char)
+    #                 allowed.add(token_ids[0])
+    #             return allowed
+
+    #         if self.decoder.state == JSONState.EXPECT_EXPONENT_NUMBER:
+    #             return {
+    #                 token_id
+    #                 for token_id in self.vocab_token_ids
+    #                 if self.get_token_text(token_id).strip() in {
+    #                     "0", "1", "2", "3", "4",
+    #                     "5", "6", "7", "8", "9",
+    #                 }
+    #             }
+
+    #         allowed = {12}
+
+    #         for digit in "0123456789":
+    #             token_ids = self.tokenizer.encode(digit)
+    #             allowed.add(token_ids[0])
+
+    #         return allowed
+
+    #     return set()
+
     def get_allowed_value_tokens(self) -> set[int]:
+        """Return tokens allowed by the current parameter type and JSON state."""
         parameter_type = self.get_current_parameter_type()
 
         if parameter_type == "string":
             return self.get_allowed_string_tokens()
 
-        digit_states = {
-            JSONState.EXPECT_FRACTION_DIGIT,
-            JSONState.EXPECT_EXPONENT_DIGIT,
-            JSONState.EXPECT_EXPONENT_NUMBER,
-        }
-
         if parameter_type == "number":
-            if self.decoder.state in digit_states:
+            state = self.decoder.state
+
+            # After a complete exponent, allow any token that preserves
+            # valid JSON syntax, including the end of the number.
+            if state == JSONState.EXPECT_EXPONENT_NUMBER:
+                allowed: set[int] = set()
+
+                for token_id in self.vocab_token_ids:
+                    token_text = self.get_token_text(token_id)
+
+                    if (
+                        token_text
+                        and self.decoder.is_token_valid(token_text)
+                    ):
+                        allowed.add(token_id)
+
+                return allowed
+
+            digit_states = {
+                JSONState.EXPECT_FRACTION_DIGIT,
+                JSONState.EXPECT_EXPONENT_DIGIT,
+            }
+
+            if state in digit_states:
                 allowed = set()
 
                 for digit in "0123456789":
@@ -262,18 +352,18 @@ class TokenConstraints:
 
                 return allowed
 
-            if self.decoder.state == JSONState.EXPECT_ZERO_END:
+            if state == JSONState.EXPECT_ZERO_END:
                 allowed = set()
+
                 for char in [".", "e", "E"]:
                     token_ids = self.tokenizer.encode(char)
                     allowed.add(token_ids[0])
+
                 return allowed
 
-            if self.decoder.state == JSONState.VALUE_NUMBER:
+            if state == JSONState.VALUE_NUMBER:
                 allowed = set()
-                # for char in "0123456789.eE":
-                #     token_ids = self.tokenizer.encode(char)
-                #     allowed.add(token_ids[0])
+
                 for token_id in self.vocab_token_ids:
                     token_text = self.get_token_text(token_id)
 
@@ -285,22 +375,14 @@ class TokenConstraints:
 
                 return allowed
 
-            if self.decoder.state == JSONState.EXPECT_EXPONENT:
+            if state == JSONState.EXPECT_EXPONENT:
                 allowed = set()
+
                 for char in "+-0123456789":
                     token_ids = self.tokenizer.encode(char)
                     allowed.add(token_ids[0])
-                return allowed
 
-            if self.decoder.state == JSONState.EXPECT_EXPONENT_NUMBER:
-                return {
-                    token_id
-                    for token_id in self.vocab_token_ids
-                    if self.get_token_text(token_id).strip() in {
-                        "0", "1", "2", "3", "4",
-                        "5", "6", "7", "8", "9",
-                    }
-                }
+                return allowed
 
             allowed = {12}
 
@@ -351,6 +433,10 @@ class TokenConstraints:
             return allowed
 
         return set()
+
+    def get_regex_character_count(self) -> int:
+        """Return the number of characters generated for the regex value."""
+        return len(self.context.current_value)
 
     def get_token_text(self, token_id: int) -> str:
         """Return a token's decoded text, using the cache."""

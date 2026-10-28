@@ -46,7 +46,7 @@ PROJECT_START_DATE=2026-08-19
 # MANDATORY RULES
 # ==============================================================================
 
-all: install lint
+all: install lint run
 
 install:
 	@echo "$(WARN_COLOR)╔════════════════════════════════════════════════════════════════╗"

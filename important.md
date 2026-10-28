@@ -30,11 +30,18 @@ uv add mypy --python 3.10
 
 
 # GOINFRE
-export HF_HOME="$HOME/goinfre/.cache/huggingface"
-export HUGGINGFACE_HUB_CACHE="$HF_HOME/hub"
-export UV_CACHE_DIR="$HOME/goinfre/.cache/uv"
+echo "HF_HOME=$HF_HOME"
+echo "UV_CACHE_DIR=$UV_CACHE_DIR"
+
+df -h "$HOME" /goinfre
+
+du -sh /goinfre/andry-ha/.cache/huggingface 2>/dev/null
+du -sh /home/andry-ha/.cache/huggingface 2>/dev/null
+
+export HF_HOME="/goinfre/andry-ha/.cache/huggingface"
+export UV_CACHE_DIR="/goinfre/andry-ha/.cache/uv"
 
 mkdir -p "$HF_HOME" "$UV_CACHE_DIR"
 
 echo "HF_HOME=$HF_HOME"
-df -h "$HOME" "$HOME/goinfre"
+df -h "$HF_HOME"

@@ -957,6 +957,36 @@ def test_allowed_tokens_for_number_parameter(
     assert constraints.tokenizer.encode("5")[0] in allowed
 
 
+def test_exponent_number_allows_valid_terminators(
+    constraints: TokenConstraints,
+) -> None:
+    """Allow valid JSON terminators after a complete exponent."""
+    constraints.current_function = "fn_add_numbers"
+    constraints.current_parameter = "a"
+    constraints.decoder.state = JSONState.EXPECT_EXPONENT_NUMBER
+    constraints.decoder.object_stack = ["object"]
+
+    allowed = constraints.get_allowed_value_tokens()
+
+    for char in [",", "}"]:
+        token_ids = constraints.tokenizer.encode(char)
+        assert token_ids[0] in allowed, (
+            f"Missing token for {char!r} after a complete exponent"
+        )
+
+    for digit in "0123456789":
+        token_ids = constraints.tokenizer.encode(digit)
+        assert token_ids[0] in allowed, (
+            f"Missing token for digit {digit}"
+        )
+
+    for char in [".", "+", "-"]:
+        token_ids = constraints.tokenizer.encode(char)
+        assert token_ids[0] not in allowed, (
+            f"Unexpected token for {char!r}"
+        )
+
+
 def main() -> None:
     """Run token constraint tests."""
     model = Small_LLM_Model()
