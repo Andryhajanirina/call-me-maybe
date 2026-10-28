@@ -45,3 +45,12 @@ mkdir -p "$HF_HOME" "$UV_CACHE_DIR"
 
 echo "HF_HOME=$HF_HOME"
 df -h "$HF_HOME"
+
+
+# LIST ARBORESCENCE OF DIRECTORY
+pwd
+find . -maxdepth 3 -type f \
+    -not -path './.git/*' \
+    -not -path './.venv/*' \
+    -not -path './.mypy_cache/*' \
+    | sort
