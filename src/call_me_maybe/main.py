@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/29 11:22:46 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/29 14:19:26 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -167,6 +167,40 @@ def generate_text(
                 break
 
             allowed = constraints.get_allowed_value_tokens()
+
+        # Clés de premier niveau : imposer "name", puis "parameters".
+        elif (
+            state in (JSONState.EXPECT_KEY_OR_END, JSONState.EXPECT_KEY_START)
+            and not constraints.reading_parameters
+        ):
+            expected_key = (
+                "name" if constraints.current_key == "" else "parameters"
+            )
+            allowed = {
+                token_id
+                for token_id in constraints.vocab_token_ids
+                if constraints.get_token_text(token_id) == '"'
+            }
+
+        # Contenu des clés de premier niveau.
+        elif state == JSONState.KEY_CONTENT and not constraints.reading_parameters:
+            expected_key = (
+                "name" if constraints.current_key == "" else "parameters"
+            )
+            partial_key = constraints.context.current_key
+            allowed = set()
+
+            for token_id in constraints.vocab_token_ids:
+                token_text = constraints.get_token_text(token_id)
+
+                if token_text == '"' and partial_key == expected_key:
+                    allowed.add(token_id)
+                elif (
+                    token_text
+                    and token_text != '"'
+                    and expected_key.startswith(partial_key + token_text)
+                ):
+                    allowed.add(token_id)
 
         # Clés de l'objet "parameters".
         elif (
@@ -335,44 +369,74 @@ def main() -> None:
 
     for i in range(len(prompts)):
         prompt = prompts[i].prompt
+
         instruction = (
             "You are a function-calling assistant. "
             "Choose the function that best matches the user's request. "
             "Return only one valid JSON object with exactly two "
             "top-level keys: name and parameters. "
-            "The name field must contain the exact function name. "
+            "The name field must contain the exact function name "
+            "from the available function definitions. "
             "The parameters field must contain the function arguments "
-            "with their exact parameter names. "
+            "with their exact parameter names and types. "
+            "Use the function descriptions and parameter definitions "
+            "to determine the intended arguments. "
             "For string parameters, preserve the requested text but "
             "remove quotation marks used only to delimit the text "
             "in the user's request. "
             "Values must contain only the requested text, "
             "not quotation marks used to delimit it in the prompt. "
             "Never add leading or trailing whitespace to string values. "
-            "For regex parameters, return the shortest valid JavaScript regex "
+            "For regex parameters, return a valid JavaScript regex "
             "that matches the requested target. "
-            "For replacing vowels, use exactly [aeiou] unless the request "
-            "requires a different pattern. "
-            "Never repeat the same character class or regex group. "
-            "Do not add alternatives such as [aeiou]+|([aeiou]). "
-            "Do not use word boundaries unless necessary. "
-            "For fn_substitute_string_with_regex, generate a regex "
-            "that matches the requested target and a replacement "
-            "that exactly matches the requested replacement text. "
-            "For regex functions, choose only the pattern needed "
-            "to match the user's requested target. "
-            "Do not combine unrelated patterns. "
-            "Do not add unnecessary regex characters. "
-            'Example: for the request "Reverse the string \'hello\'", '
-            'return the parameter "s" with the value "hello". '
+            "Do not add unnecessary regex characters or combine "
+            "unrelated patterns. "
+            "For replacement parameters, use the exact replacement "
+            "requested by the user. "
+            "Do not invent arguments or add extra keys. "
             f"Available functions:\n{functions_description}\n"
             f"User request: {prompt}\nJSON:"
         )
+
+        # instruction = (
+        #     "You are a function-calling assistant. "
+        #     "Choose the function that best matches the user's request. "
+        #     "Return only one valid JSON object with exactly two "
+        #     "top-level keys: name and parameters. "
+        #     "The name field must contain the exact function name. "
+        #     "The parameters field must contain the function arguments "
+        #     "with their exact parameter names. "
+        #     "For string parameters, preserve the requested text but "
+        #     "remove quotation marks used only to delimit the text "
+        #     "in the user's request. "
+        #     "Values must contain only the requested text, "
+        #     "not quotation marks used to delimit it in the prompt. "
+        #     "Never add leading or trailing whitespace to string values. "
+        #     "For regex parameters, return the shortest valid JavaScript regex "
+        #     "that matches the requested target. "
+        #     "For replacing vowels, use exactly [aeiou] unless the request "
+        #     "requires a different pattern. "
+        #     "Never repeat the same character class or regex group. "
+        #     "Do not add alternatives such as [aeiou]+|([aeiou]). "
+        #     "Do not use word boundaries unless necessary. "
+        #     "For fn_substitute_string_with_regex, generate a regex "
+        #     "that matches the requested target and a replacement "
+        #     "that exactly matches the requested replacement text. "
+        #     "For regex functions, choose only the pattern needed "
+        #     "to match the user's requested target. "
+        #     "Do not combine unrelated patterns. "
+        #     "Do not add unnecessary regex characters. "
+        #     'Example: for the request "Reverse the string \'hello\'", '
+        #     'return the parameter "s" with the value "hello". '
+        #     f"Available functions:\n{functions_description}\n"
+        #     f"User request: {prompt}\nJSON:"
+        # )
 
         start = time.perf_counter()
         print(f"\nPrompt testé : {prompt}")
 
         result = generate_text(model, instruction, constraints)
+        print("DEBUG résultat brut :", repr(result))
 
         elapsed = time.perf_counter() - start
 

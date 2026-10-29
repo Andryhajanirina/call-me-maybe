@@ -4,7 +4,7 @@
     "name": "fn_substitute_string_with_regex",
     "parameters": {
       "source_string": "'Programming is fun'",
-      "regex": "[aeiou]",
+      "regex": "/[aeiou]/g",
       "replacement": "*"
     }
   }
