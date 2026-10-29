@@ -961,6 +961,7 @@ def test_exponent_number_allows_valid_terminators(
     constraints: TokenConstraints,
 ) -> None:
     """Allow valid JSON terminators after a complete exponent."""
+    print("=== Allow valid JSON terminators after a complete exponent. ===")
     constraints.current_function = "fn_add_numbers"
     constraints.current_parameter = "a"
     constraints.decoder.state = JSONState.EXPECT_EXPONENT_NUMBER
@@ -1052,6 +1053,7 @@ def main() -> None:
     test_get_current_parameter_type(constraints)
     test_allowed_tokens_for_string_parameter(constraints)
     test_allowed_tokens_for_number_parameter(constraints)
+    test_exponent_number_allows_valid_terminators(constraints)
 
     print("\nTous les tests sont terminés.")
 

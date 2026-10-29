@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/28 11:08:30 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/29 11:22:46 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -123,6 +123,18 @@ def generate_text(
             and not constraints.reading_function_name
         ):
             allowed = constraints.get_allowed_string_tokens()
+
+            # # Limite ciblée pour éviter les répétitions de regex.
+            # if constraints.current_key == "regex":
+            #     max_regex_length = 32
+            #     # max_regex_length = 8
+
+            #     if constraints.get_regex_character_count() >= max_regex_length:
+            #         allowed = {
+            #             token_id
+            #             for token_id in allowed
+            #             if constraints.get_token_text(token_id) == '"'
+            #         }
 
         # Début de l'objet "parameters".
         elif (
@@ -273,6 +285,15 @@ def generate_text(
 
         # Consommer chaque token une seule fois.
         constraints.process_token(next_id, generated)
+        if constraints.current_key == "regex":
+            print(
+                "DEBUG regex length:",
+                constraints.get_regex_character_count(),
+                "value:",
+                repr(constraints.context.current_value),
+                "state:",
+                constraints.decoder.state,
+            )
 
         if constraints.decoder.state == JSONState.DONE:
             break
@@ -328,11 +349,13 @@ def main() -> None:
             "Values must contain only the requested text, "
             "not quotation marks used to delimit it in the prompt. "
             "Never add leading or trailing whitespace to string values. "
-            "For regex parameters, return a valid JavaScript regex literal. "
-            "Use \\d+ to match sequences of digits. "
-            "Use [aeiou] to match lowercase vowels. "
-            "Do not use word boundaries unless they are necessary. "
-            "Do not repeat regex groups unnecessarily. "
+            "For regex parameters, return the shortest valid JavaScript regex "
+            "that matches the requested target. "
+            "For replacing vowels, use exactly [aeiou] unless the request "
+            "requires a different pattern. "
+            "Never repeat the same character class or regex group. "
+            "Do not add alternatives such as [aeiou]+|([aeiou]). "
+            "Do not use word boundaries unless necessary. "
             "For fn_substitute_string_with_regex, generate a regex "
             "that matches the requested target and a replacement "
             "that exactly matches the requested replacement text. "
@@ -346,7 +369,6 @@ def main() -> None:
             f"User request: {prompt}\nJSON:"
         )
 
-        # print(f"Nombre de prompts à tester : {len(prompts)}")
         start = time.perf_counter()
         print(f"\nPrompt testé : {prompt}")
 

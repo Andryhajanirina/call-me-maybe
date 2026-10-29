@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/09/15 14:36:22 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/04 10:10:36 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/10/29 10:18:11 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -15,6 +15,7 @@
 class JSONContext:
     def __init__(self) -> None:
         self.current_key = ""
+        self.current_value = ""
 
     def start_key(self) -> None:
         self.current_key = ""
@@ -24,6 +25,15 @@ class JSONContext:
 
     def finish_key(self) -> str:
         return self.current_key
+
+    def start_value(self) -> None:
+        self.current_value = ""
+
+    def add_value_character(self, char: str) -> None:
+        self.current_value += char
+
+    def finish_value(self) -> str:
+        return self.current_value
 
     def is_key(self, key: str) -> bool:
         return self.current_key == key
