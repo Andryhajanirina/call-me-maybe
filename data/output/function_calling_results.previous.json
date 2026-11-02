@@ -62,25 +62,24 @@
     "name": "fn_substitute_string_with_regex",
     "parameters": {
       "source_string": "Hello 34 I'm 233 years old",
-      "regex": "/\b(\b)(\b)(\b)(\b)(\b)(\b)(\b)(\b)/g",
+      "regex": "/\b([0-9]+)\b/gi",
       "replacement": "NUMBERS"
     }
   },
   {
-    "prompt": "Replace all vowels in 'Programming is fun' with asterisks",
+    "prompt": "Replace all vowels in 'Programming is funy' with asterisks",
     "name": "fn_substitute_string_with_regex",
     "parameters": {
-      "source_string": "'Programming is fun'",
-      "regex": "/[aeiou]/g",
-      "replacement": "*"
+      "source_string": "'Programming is funy'",
+      "regex": "/[aeiouy]/gi"
     }
   },
   {
     "prompt": "Substitute the word 'cat' with 'dog' in 'The cat sat on the mat with another cat'",
     "name": "fn_substitute_string_with_regex",
     "parameters": {
-      "source_string": "'The cat sat on the mat with another cat' ",
-      "regex": "/(cat)/g",
+      "source_string": "'The cat sat on the mat with another cat'",
+      "regex": "/cat/ig",
       "replacement": "'dog'"
     }
   }
