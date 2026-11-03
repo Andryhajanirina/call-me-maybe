@@ -6,6 +6,12 @@
     "prompt": "What is the sum of 265 and 345?"
   },
   {
+    "prompt": "Return the result of multiplication of 26.5 and 34.5?"
+  },
+  {
+    "prompt": "Multiply 26 and 3?"
+  },
+  {
     "prompt": "Greet shrek"
   },
   {

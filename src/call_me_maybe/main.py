@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/03 15:30:42 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/03 16:40:34 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -367,10 +367,10 @@ def main() -> None:
     functions_description = schema.get_functions_description()
 
     # prompts = prompts[-3:]
-    # prompts = prompts[-2:-1]
+    prompts = prompts[-2:-1]
     # prompts = prompts[8:10]
     # prompts = prompts[2:6]
-    prompts = prompts[:3]
+    # prompts = prompts[6:8]
     print(f"Nombre de prompts à tester : {len(prompts)}")
 
     for i in range(len(prompts)):

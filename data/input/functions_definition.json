@@ -15,6 +15,21 @@
     }
   },
   {
+    "name": "fn_mult_integer",
+    "description": "Multiply two integer together and return their result.",
+    "parameters": {
+      "a": {
+        "type": "integer"
+      },
+      "b": {
+        "type": "integer"
+      }
+    },
+    "returns": {
+      "type": "integer"
+    }
+  },
+  {
     "name": "fn_greet",
     "description": "Generate a greeting message for a person by name.",
     "parameters": {
