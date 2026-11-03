@@ -1,6 +1,7 @@
 import json
 import time
 from llm_sdk import Small_LLM_Model
+from pathlib import Path
 
 from call_me_maybe.function_schema import FunctionSchema
 from call_me_maybe.token_constraints import TokenConstraints
@@ -986,6 +987,81 @@ def test_exponent_number_allows_valid_terminators(
         assert token_ids[0] not in allowed, (
             f"Unexpected token for {char!r}"
         )
+
+
+def test_integer_parameter_types(
+    model: Small_LLM_Model,
+) -> None:
+    """Test that int and integer schemas allow integer tokens only."""
+    import tempfile
+
+    schema_data = [
+        {
+            "name": "fn_test_integer",
+            "description": "Test integer parameters.",
+            "parameters": {
+                "value": {"type": "int"}
+            },
+            "returns": {"type": "int"},
+        },
+        {
+            "name": "fn_test_integer_alias",
+            "description": "Test integer alias.",
+            "parameters": {
+                "value": {"type": "integer"}
+            },
+            "returns": {"type": "integer"},
+        },
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        schema_path = Path(tmp_dir) / "schema.json"
+
+        with schema_path.open("w", encoding="utf-8") as file:
+            json.dump(schema_data, file)
+
+        schema = FunctionSchema(schema_path)
+        constraints = TokenConstraints(model, schema)
+
+        for function_name in (
+            "fn_test_integer",
+            "fn_test_integer_alias",
+        ):
+            constraints.current_function = function_name
+            constraints.current_parameter = "value"
+            constraints.decoder.object_stack = ["object"]
+
+            # Beginning of an integer.
+            constraints.decoder.state = JSONState.EXPECT_VALUE_START
+            allowed = constraints.get_allowed_value_tokens()
+
+            for char in "-0123456789":
+                token_id = constraints.tokenizer.encode(char)[0]
+                assert token_id in allowed
+
+            # After a minus sign.
+            constraints.decoder.state = JSONState.EXPECT_NUMBER_DIGIT
+            allowed = constraints.get_allowed_value_tokens()
+
+            for digit in "0123456789":
+                token_id = constraints.tokenizer.encode(digit)[0]
+                assert token_id in allowed
+
+            # After zero: no decimal or exponent.
+            constraints.decoder.state = JSONState.EXPECT_ZERO_END
+            allowed = constraints.get_allowed_value_tokens()
+
+            for char in ".eE":
+                token_id = constraints.tokenizer.encode(char)[0]
+                assert token_id not in allowed
+
+            # After a complete integer.
+            constraints.decoder.state = JSONState.VALUE_NUMBER
+            allowed = constraints.get_allowed_value_tokens()
+
+            for char in ".eE":
+                token_id = constraints.tokenizer.encode(char)[0]
+                assert token_id not in allowed
 
 
 def main() -> None:

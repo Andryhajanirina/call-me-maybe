@@ -227,6 +227,54 @@ class TokenConstraints:
         if parameter_type == "string":
             return self.get_allowed_string_tokens()
 
+        if parameter_type in ("int", "integer"):
+            state = self.decoder.state
+
+            # Beginning of an integer: allow minus or digits.
+            if state == JSONState.EXPECT_VALUE_START:
+                allowed = set()
+
+                for char in "-0123456789":
+                    token_ids = self.tokenizer.encode(char)
+                    allowed.add(token_ids[0])
+
+                return allowed
+
+            # After a minus sign, at least one digit is required.
+            if state == JSONState.EXPECT_NUMBER_DIGIT:
+                allowed = set()
+
+                for digit in "0123456789":
+                    token_ids = self.tokenizer.encode(digit)
+                    allowed.add(token_ids[0])
+
+                return allowed
+
+            # After zero or a complete integer, allow only
+            # integer digits or valid JSON number terminators.
+            if state in (
+                JSONState.EXPECT_ZERO_END,
+                JSONState.VALUE_NUMBER,
+            ):
+                allowed = set()
+                valid_chars = "0123456789,} \t\r\n"
+
+                for token_id in self.vocab_token_ids:
+                    token_text = self.get_token_text(token_id)
+
+                    if not token_text:
+                        continue
+
+                    if not all(char in valid_chars for char in token_text):
+                        continue
+
+                    if self.decoder.is_token_valid(token_text):
+                        allowed.add(token_id)
+
+                return allowed
+
+            return set()
+
         if parameter_type == "number":
             state = self.decoder.state
 

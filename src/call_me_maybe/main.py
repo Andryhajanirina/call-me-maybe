@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/02 16:52:36 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/03 15:30:42 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -368,8 +368,9 @@ def main() -> None:
 
     # prompts = prompts[-3:]
     # prompts = prompts[-2:-1]
-    prompts = prompts[8:10]
+    # prompts = prompts[8:10]
     # prompts = prompts[2:6]
+    prompts = prompts[:3]
     print(f"Nombre de prompts à tester : {len(prompts)}")
 
     for i in range(len(prompts)):
@@ -456,9 +457,20 @@ def main() -> None:
 
         try:
             generated_data = json.loads(result)
+            # function_result = FunctionCallResult(
+            #     prompt=prompt,
+            #     **generated_data,
+            # )
+            function_name = generated_data["name"]
+            parameters = schema.normalize_parameters(
+                function_name,
+                generated_data["parameters"],
+            )
+
             function_result = FunctionCallResult(
                 prompt=prompt,
-                **generated_data,
+                name=function_name,
+                parameters=parameters,
             )
         except (json.JSONDecodeError, TypeError, ValueError) as e:
             raise ValueError(

@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:42:22 by andry-ha            #+#    #+#            #
-#   Updated: 2026/09/22 10:07:23 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/03 11:36:25 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -17,7 +17,16 @@ from pydantic import BaseModel, Field
 
 
 # ParameterType = Literal["string", "number"]
-ParameterType = Literal["string", "number", "boolean", "array", "object"]
+# ParameterType = Literal["string", "number", "boolean", "array", "object"]
+ParameterType = Literal[
+    "string",
+    "number",
+    "int",
+    "integer",
+    "boolean",
+    "array",
+    "object",
+]
 
 
 class ParameterDefinition(BaseModel):

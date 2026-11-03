@@ -12,6 +12,9 @@
     "prompt": "Greet john"
   },
   {
+    "prompt": "Say hello to Andry"
+  },
+  {
     "prompt": "Reverse the string 'hello'"
   },
   {
