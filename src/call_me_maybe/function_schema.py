@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:41:52 by andry-ha            #+#    #+#            #
-#   Updated: 2026/10/25 12:46:03 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/03 10:09:42 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -18,16 +18,6 @@ from .models import FunctionDefinition
 
 
 class FunctionSchema:
-    # def __init__(self, path: str | Path) -> None:
-    #     self.path = Path(path)
-
-    #     with self.path.open("r", encoding="utf-8") as file:
-    #         raw_data = json.load(file)
-
-    #     self.functions = [
-    #         FunctionDefinition.model_validate(item)
-    #         for item in raw_data
-    #     ]
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
 

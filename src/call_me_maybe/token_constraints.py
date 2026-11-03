@@ -132,17 +132,6 @@ class TokenConstraints:
         if name is not None:
             self.current_function = name
 
-    # def get_current_parameter_type(self) -> str | None:
-    #     function = self.schema.get_function(
-    #         self.current_function
-    #     )
-    #     parameter = function.parameters[
-    #         self.current_parameter
-    #     ]
-    #     print("Current function:", function.name)
-    #     print("Current parameter:", self.current_parameter)
-    #     print("Type parameter:", parameter.type)
-    #     return parameter.type
     def get_current_parameter_type(self) -> str | None:
         if self.current_function is None or self.current_parameter is None:
             return None
@@ -158,47 +147,6 @@ class TokenConstraints:
             return None
 
         return parameter.type
-
-    # def process_token_text(self, token_text: str) -> None:
-    #     for char in token_text:
-    #         previous_state = self.decoder.state
-
-    #         valid = self.decoder.consume_char(char)
-
-    #         if not valid:
-    #             print(repr(char), "-> invalid")
-    #             continue
-
-    #         if previous_state in (
-    #             JSONState.EXPECT_KEY_OR_END,
-    #             JSONState.EXPECT_KEY_START,
-    #         ) and char == '"':
-    #             self.context.start_key()
-    #             self.function_name_tokens = []
-    #             self.reading_function_name = False
-
-    #         elif previous_state == JSONState.KEY_CONTENT:
-    #             if char == '"':
-    #                 self.current_key = self.context.finish_key()
-
-    #                 if self.current_key == "parameters":
-    #                     self.reading_parameters = True
-    #                     self.used_parameters = set()
-
-    #                 elif self.reading_parameters:
-    #                     self.current_parameter = self.current_key
-    #                     self.used_parameters.add(self.current_key)
-
-    #                 print("Completed key:", self.current_key)
-    #             else:
-    #                 self.context.add_key_character(char)
-
-    #         print(
-    #             repr(char),
-    #             "->",
-    #             valid,
-    #             self.decoder.state,
-    #         )
 
     def process_token_text(self, token_text: str) -> None:
         for char in token_text:
@@ -271,78 +219,6 @@ class TokenConstraints:
                 self.function_name_tokens.append(token_id)
 
         self.update_current_function(self.function_name_tokens)
-
-    # def get_allowed_value_tokens(self) -> set[int]:
-    #     parameter_type = self.get_current_parameter_type()
-
-    #     if parameter_type == "string":
-    #         return self.get_allowed_string_tokens()
-
-    #     digit_states = {
-    #         JSONState.EXPECT_FRACTION_DIGIT,
-    #         JSONState.EXPECT_EXPONENT_DIGIT,
-    #         JSONState.EXPECT_EXPONENT_NUMBER,
-    #     }
-
-    #     if parameter_type == "number":
-    #         if self.decoder.state in digit_states:
-    #             allowed = set()
-
-    #             for digit in "0123456789":
-    #                 token_ids = self.tokenizer.encode(digit)
-    #                 allowed.add(token_ids[0])
-
-    #             return allowed
-
-    #         if self.decoder.state == JSONState.EXPECT_ZERO_END:
-    #             allowed = set()
-    #             for char in [".", "e", "E"]:
-    #                 token_ids = self.tokenizer.encode(char)
-    #                 allowed.add(token_ids[0])
-    #             return allowed
-
-    #         if self.decoder.state == JSONState.VALUE_NUMBER:
-    #             allowed = set()
-    #             # for char in "0123456789.eE":
-    #             #     token_ids = self.tokenizer.encode(char)
-    #             #     allowed.add(token_ids[0])
-    #             for token_id in self.vocab_token_ids:
-    #                 token_text = self.get_token_text(token_id)
-
-    #                 if not token_text or token_text == "}":
-    #                     continue
-
-    #                 if self.decoder.is_token_valid(token_text):
-    #                     allowed.add(token_id)
-
-    #             return allowed
-
-    #         if self.decoder.state == JSONState.EXPECT_EXPONENT:
-    #             allowed = set()
-    #             for char in "+-0123456789":
-    #                 token_ids = self.tokenizer.encode(char)
-    #                 allowed.add(token_ids[0])
-    #             return allowed
-
-    #         if self.decoder.state == JSONState.EXPECT_EXPONENT_NUMBER:
-    #             return {
-    #                 token_id
-    #                 for token_id in self.vocab_token_ids
-    #                 if self.get_token_text(token_id).strip() in {
-    #                     "0", "1", "2", "3", "4",
-    #                     "5", "6", "7", "8", "9",
-    #                 }
-    #             }
-
-    #         allowed = {12}
-
-    #         for digit in "0123456789":
-    #             token_ids = self.tokenizer.encode(digit)
-    #             allowed.add(token_ids[0])
-
-    #         return allowed
-
-    #     return set()
 
     def get_allowed_value_tokens(self) -> set[int]:
         """Return tokens allowed by the current parameter type and JSON state."""
@@ -468,7 +344,6 @@ class TokenConstraints:
 
     def get_regex_character_count(self) -> int:
         """Return the number of characters generated for the regex value."""
-        # return len(self.context.current_value)
         return len(self.context.finish_value())
 
     def get_token_text(self, token_id: int) -> str:
