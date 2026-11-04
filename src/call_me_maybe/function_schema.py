@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:41:52 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/03 15:29:02 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/04 11:46:31 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -128,6 +128,17 @@ class FunctionSchema:
                     )
 
                 normalized[name] = value
+
+        missing_parameters = (
+            set(function.parameters) - set(parameters)
+        )
+
+        if missing_parameters:
+            missing = ", ".join(sorted(missing_parameters))
+            raise ValueError(
+                f"Missing parameter(s) for function "
+                f"'{function_name}': {missing}"
+            )
 
         return normalized
 

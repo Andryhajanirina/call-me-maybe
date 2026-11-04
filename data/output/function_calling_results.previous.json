@@ -3,16 +3,32 @@
     "prompt": "What is the sum of 2 and 3?",
     "name": "fn_add_numbers",
     "parameters": {
-      "a": 2,
-      "b": 3
+      "a": 2.0,
+      "b": 3.0
     }
   },
   {
     "prompt": "What is the sum of 265 and 345?",
     "name": "fn_add_numbers",
     "parameters": {
+      "a": 265.0,
+      "b": 345.0
+    }
+  },
+  {
+    "prompt": "Return the result of multiplication of 26.5 and 34.5?",
+    "name": "fn_mult_integer",
+    "parameters": {
       "a": 265,
       "b": 345
+    }
+  },
+  {
+    "prompt": "Multiply 26 and 3?",
+    "name": "fn_mult_integer",
+    "parameters": {
+      "a": 26,
+      "b": 3
     }
   },
   {
@@ -27,6 +43,13 @@
     "name": "fn_greet",
     "parameters": {
       "name": "john"
+    }
+  },
+  {
+    "prompt": "Say hello to Andry",
+    "name": "fn_greet",
+    "parameters": {
+      "name": "Andry"
     }
   },
   {
@@ -47,14 +70,14 @@
     "prompt": "What is the square root of 16?",
     "name": "fn_get_square_root",
     "parameters": {
-      "a": 16
+      "a": 16.0
     }
   },
   {
     "prompt": "Calculate the square root of 144",
     "name": "fn_get_square_root",
     "parameters": {
-      "a": 144
+      "a": 144.0
     }
   },
   {
@@ -62,15 +85,14 @@
     "name": "fn_substitute_string_with_regex",
     "parameters": {
       "source_string": "Hello 34 I'm 233 years old",
-      "regex": "/\b([0-9]+)\b/gi",
-      "replacement": "NUMBERS"
+      "regex": "/\b([0-9]+)\b/gi"
     }
   },
   {
-    "prompt": "Replace all vowels in 'Programming is funy' with asterisks",
+    "prompt": "Replace all vowels in 'Programming is fun' with asterisks",
     "name": "fn_substitute_string_with_regex",
     "parameters": {
-      "source_string": "'Programming is funy'",
+      "source_string": "'Programming is fun'",
       "regex": "/[aeiouy]/gi"
     }
   },

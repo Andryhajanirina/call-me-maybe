@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/03 16:40:34 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/04 15:43:06 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -124,18 +124,6 @@ def generate_text(
         ):
             allowed = constraints.get_allowed_string_tokens()
 
-            # # Limite ciblée pour éviter les répétitions de regex.
-            # if constraints.current_key == "regex":
-            #     max_regex_length = 32
-            #     # max_regex_length = 8
-
-            #     if constraints.get_regex_character_count() >= max_regex_length:
-            #         allowed = {
-            #             token_id
-            #             for token_id in allowed
-            #             if constraints.get_token_text(token_id) == '"'
-            #         }
-
         # Début de l'objet "parameters".
         elif (
             state == JSONState.EXPECT_VALUE_START
@@ -205,6 +193,43 @@ def generate_text(
                 ):
                     allowed.add(token_id)
 
+        # # Clés de l'objet "parameters".
+        # elif (
+        #     state in (
+        #         JSONState.EXPECT_KEY_OR_END,
+        #         JSONState.EXPECT_KEY_START,
+        #     )
+        #     and constraints.reading_parameters
+        # ):
+        #     if constraints.current_function is None:
+        #         allowed = set()
+        #     else:
+        #         function = constraints.schema.get_function(
+        #             constraints.current_function
+        #         )
+
+        #         if function is None:
+        #             allowed = set()
+        #         else:
+        #             missing_parameters = (
+        #                 set(function.parameters)
+        #                 - constraints.used_parameters
+        #             )
+
+        #             allowed = {
+        #                 token_id
+        #                 for token_id in constraints.vocab_token_ids
+        #                 if constraints.get_token_text(token_id).strip() == '"'
+        #             }
+
+        #             if missing_parameters:
+        #                 allowed = {
+        #                     token_id
+        #                     for token_id in allowed
+        #                     if constraints.get_token_text(token_id).strip()
+        #                     != "}"
+        #                 }
+
         # Clés de l'objet "parameters".
         elif (
             state in (
@@ -212,6 +237,98 @@ def generate_text(
                 JSONState.EXPECT_KEY_START,
             )
             and constraints.reading_parameters
+            and len(constraints.decoder.object_stack) == 2
+        ):
+            if constraints.current_function is None:
+                allowed = set()
+            else:
+                function = constraints.schema.get_function(
+                    constraints.current_function
+                )
+
+                if function is None:
+                    allowed = set()
+                else:
+                    missing_parameters = (
+                        set(function.parameters)
+                        - constraints.used_parameters
+                    )
+
+                    allowed = set()
+
+                    # Autoriser une nouvelle clé uniquement
+                    # s'il reste des paramètres obligatoires.
+                    if missing_parameters:
+                        allowed = {
+                            token_id
+                            for token_id in constraints.vocab_token_ids
+                            if constraints.get_token_text(token_id) == '"'
+                        }
+
+                    # Autoriser la fermeture uniquement lorsque
+                    # tous les paramètres obligatoires sont présents.
+                    elif state == JSONState.EXPECT_KEY_OR_END:
+                        allowed = {
+                            token_id
+                            for token_id in constraints.vocab_token_ids
+                            if constraints.get_token_text(token_id).strip()
+                            == "}"
+                        }
+
+        # Contenu des clés de l'objet "parameters".
+        elif (
+            state == JSONState.KEY_CONTENT
+            and constraints.reading_parameters
+            and len(constraints.decoder.object_stack) == 2
+        ):
+            if constraints.current_function is None:
+                allowed = set()
+            else:
+                function = constraints.schema.get_function(
+                    constraints.current_function
+                )
+
+                if function is None:
+                    allowed = set()
+                else:
+                    missing_parameters = (
+                        set(function.parameters)
+                        - constraints.used_parameters
+                    )
+
+                    partial_key = constraints.context.current_key
+                    allowed = set()
+
+                    for token_id in constraints.vocab_token_ids:
+                        token_text = constraints.get_token_text(token_id)
+
+                        if not token_text:
+                            continue
+
+                        # Le token continue le nom d'un paramètre.
+                        if (
+                            '"' not in token_text
+                            and any(
+                                parameter.startswith(
+                                    partial_key + token_text
+                                )
+                                for parameter in missing_parameters
+                            )
+                        ):
+                            allowed.add(token_id)
+
+                        # Le token termine exactement le nom attendu.
+                        elif '"' in token_text:
+                            key_part = token_text.split('"', 1)[0]
+
+                            if partial_key + key_part in missing_parameters:
+                                allowed.add(token_id)
+
+        # Empêcher de fermer parameters si des champs obligatoires manquent.
+        elif (
+            state == JSONState.EXPECT_COMMA
+            and constraints.reading_parameters
+            and len(constraints.decoder.object_stack) == 2
         ):
             if constraints.current_function is None:
                 allowed = set()
@@ -231,16 +348,12 @@ def generate_text(
                     allowed = {
                         token_id
                         for token_id in constraints.vocab_token_ids
-                        if constraints.get_token_text(token_id).strip() == '"'
+                        if constraints.is_token_valid(token_id)
+                        and not (
+                            missing_parameters
+                            and "}" in constraints.get_token_text(token_id)
+                        )
                     }
-
-                    if missing_parameters:
-                        allowed = {
-                            token_id
-                            for token_id in allowed
-                            if constraints.get_token_text(token_id).strip()
-                            != "}"
-                        }
 
         # Autres états du décodeur JSON.
         else:
@@ -367,42 +480,17 @@ def main() -> None:
     functions_description = schema.get_functions_description()
 
     # prompts = prompts[-3:]
-    prompts = prompts[-2:-1]
+    # prompts = prompts[-2:-1]
     # prompts = prompts[8:10]
+    # prompts = prompts[11:]
+    # prompts = prompts[8:]
     # prompts = prompts[2:6]
-    # prompts = prompts[6:8]
+    # prompts = prompts[5:8]
+    # prompts = prompts[:4]
     print(f"Nombre de prompts à tester : {len(prompts)}")
 
     for i in range(len(prompts)):
         prompt = prompts[i].prompt
-
-        # instruction = (
-        #     "You are a function-calling assistant. "
-        #     "Choose the function that best matches the user's request. "
-        #     "Return only one valid JSON object with exactly two "
-        #     "top-level keys: name and parameters. "
-        #     "The name field must contain the exact function name "
-        #     "from the available function definitions. "
-        #     "The parameters field must contain the function arguments "
-        #     "with their exact parameter names and types. "
-        #     "Use the function descriptions and parameter definitions "
-        #     "to determine the intended arguments. "
-        #     "For string parameters, preserve the requested text but "
-        #     "remove quotation marks used only to delimit the text "
-        #     "in the user's request. "
-        #     "Values must contain only the requested text, "
-        #     "not quotation marks used to delimit it in the prompt. "
-        #     "Never add leading or trailing whitespace to string values. "
-        #     "For regex parameters, return a valid JavaScript regex "
-        #     "that matches the requested target. "
-        #     "Do not add unnecessary regex characters or combine "
-        #     "unrelated patterns. "
-        #     "For replacement parameters, use the exact replacement "
-        #     "requested by the user. "
-        #     "Do not invent arguments or add extra keys. "
-        #     f"Available functions:\n{functions_description}\n"
-        #     f"User request: {prompt}\nJSON:"
-        # )
 
         instruction = (
             "You are a function-calling assistant. "
@@ -457,11 +545,13 @@ def main() -> None:
 
         try:
             generated_data = json.loads(result)
-            # function_result = FunctionCallResult(
-            #     prompt=prompt,
-            #     **generated_data,
-            # )
             function_name = generated_data["name"]
+
+            generated_data["parameters"] = {
+                key: (val.strip("'\" ") if isinstance(val, str) else val)
+                for key, val in generated_data["parameters"].items()
+            }
+
             parameters = schema.normalize_parameters(
                 function_name,
                 generated_data["parameters"],

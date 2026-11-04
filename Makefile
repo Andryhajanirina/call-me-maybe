@@ -145,7 +145,7 @@ debug:
 # 		--output $(OUTPUT)
 
 test:
-	@$(UV) run pytest src/call_me_maybe/test_json_context.py src/call_me_maybe/test_schema.py src/call_me_maybe/test_token_constraints.py
+	@$(UV) run pytest src/call_me_maybe/test_json_context.py src/call_me_maybe/test_function_schema.py src/call_me_maybe/test_token_constraints.py
 # ==============================================================================
 # CLEAN - Complete clearing of caches and temporary files
 # ==============================================================================

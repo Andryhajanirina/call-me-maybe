@@ -220,8 +220,25 @@ class TokenConstraints:
 
         self.update_current_function(self.function_name_tokens)
 
+    # """Return tokens allowed by the current parameter type and JSON state."""
     def get_allowed_value_tokens(self) -> set[int]:
-        """Return tokens allowed by the current parameter type and JSON state."""
+        """
+        Determine and return the set of token IDs allowed by the
+        current parameter type and the internal state of the
+        JSON decoder.
+
+        This method dynamically enforces syntax constraints by
+        inspecting the current JSON validation state and the target
+        data type (string, integer, or number) to restrict the
+        next generated tokens.
+
+        Returns:
+            set[int]: A set of allowed token IDs that satisfy both
+                the current parameter type validation rules and the
+                active JSON schema state. Returns an empty set if
+                the parameter type is unsupported or if no
+                transitions are valid.
+        """
         parameter_type = self.get_current_parameter_type()
 
         if parameter_type == "string":
