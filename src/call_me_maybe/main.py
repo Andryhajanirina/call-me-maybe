@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/06 11:19:30 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/06 13:21:13 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -64,7 +64,8 @@ def generate_text(
     max_new_tokens: int = 200,
 ) -> str:
     """Generate JSON while constraining tokens to valid choices."""
-    input_ids = model.encode(prompt).tolist()[0]
+    input_ids = constraints.tokenizer.encode(prompt)
+
     generated: list[int] = []
 
     # Réinitialiser l'état pour cette génération.

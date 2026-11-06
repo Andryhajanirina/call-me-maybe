@@ -7,18 +7,24 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:34 by andry-ha            #+#    #+#            #
-#   Updated: 2026/09/09 11:43:46 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/06 13:37:09 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
 import json
 
 from llm_sdk import Small_LLM_Model
+from call_me_maybe.token_constraints import TokenConstraints
+from call_me_maybe.function_schema import FunctionSchema
+from call_me_maybe.parsing import parse_args
 
 
 def main() -> None:
     model = Small_LLM_Model()
+    args = parse_args()
 
+    schema = FunctionSchema(args.functions_definition)
+    constraints = TokenConstraints(model, schema)
     vocab_path = model.get_path_to_vocab_file()
 
     with open(vocab_path, "r", encoding="utf-8") as file:
@@ -37,20 +43,6 @@ def main() -> None:
             if char in token and len(token) <= 4:
                 print(token_id, repr(token))
 
-    # print("Token 0:", id_to_token[0])
-    # print("Token 32:", id_to_token[32])
-    # print("Token 64:", id_to_token[64])
-
-    # texts = [
-    #     "Hello",
-    #     " Hello",
-    #     "{",
-    #     "}",
-    #     '"name"',
-    #     '"parameters"',
-    #     ":",
-    #     ",",
-    # ]
     texts = [
         "{",
         '{"',
@@ -62,11 +54,8 @@ def main() -> None:
         '{"parameters":',
     ]
 
-    # for text in texts:
-    #     ids = model.encode(text)[0].tolist()
-    #     print(text, "->", ids)
     for text in texts:
-        ids = model.encode(text)[0].tolist()
+        ids = constraints.tokenizer.encode(text)
         print(repr(text), "->", ids)
 
         for token_id in ids:
