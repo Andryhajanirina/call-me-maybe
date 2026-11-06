@@ -37,11 +37,49 @@ class TokenConstraints:
             merges_path=model.get_path_to_merges_file(),
         )
         self.token_text_cache: dict[int, str] = {}
+        # self.vocab_token_ids: set[int] = set(
+        #     self.tokenizer.id_to_token.keys()
+        # )
+        # self.build_string_start_tokens()
         self.vocab_token_ids: set[int] = set(
             self.tokenizer.id_to_token.keys()
         )
-        self.build_string_start_tokens()
+
+        # Index des tokens simples utilisés fréquemment.
+        self.quote_tokens: set[int] = set()
+        self.open_brace_tokens: set[int] = set()
+        self.close_brace_tokens: set[int] = set()
+        self.character_tokens: dict[str, int] = {}
+
+        self.build_token_indexes()
         self.used_parameters: set[str] = set()
+        self.encoded_function_names = self.encode_function_names()
+
+    def build_token_indexes(self) -> None:
+        """Build indexes for frequently used vocabulary tokens."""
+
+        self.string_start_tokens.clear()
+
+        for token_id in self.vocab_token_ids:
+            token_text = self.get_token_text(token_id)
+
+            if token_text.startswith('"'):
+                self.string_start_tokens.add(token_id)
+
+            if token_text == '"':
+                self.quote_tokens.add(token_id)
+
+            if token_text.strip() == "{":
+                self.open_brace_tokens.add(token_id)
+
+            if token_text.strip() == "}":
+                self.close_brace_tokens.add(token_id)
+
+        for char in '-+0123456789.eE':
+            token_ids = self.tokenizer.encode(char)
+
+            if token_ids:
+                self.character_tokens[char] = token_ids[0]
 
     def encode_function_names(self) -> dict[str, list[int]]:
         """Encode all available function names into token ID lists.
@@ -52,7 +90,6 @@ class TokenConstraints:
         result: dict[str, list[int]] = {}
 
         for name in self.schema.get_function_names():
-            # result[name] = self.model.encode(name).squeeze(0).tolist()
             result[name] = self.tokenizer.encode(name)
 
         return result
@@ -61,7 +98,7 @@ class TokenConstraints:
         """
         Return the token IDs that can start a function name.
         """
-        encoded = self.encode_function_names()
+        encoded = self.encoded_function_names
 
         return {
             token_ids[0]
@@ -94,7 +131,7 @@ class TokenConstraints:
         self,
         generated_tokens: list[int],
     ) -> set[int]:
-        encoded = self.encode_function_names()
+        encoded = self.encoded_function_names
 
         allowed: set[int] = set()
 
@@ -109,7 +146,7 @@ class TokenConstraints:
         self,
         generated_tokens: list[int],
     ) -> bool:
-        for token_ids in self.encode_function_names().values():
+        for token_ids in self.encoded_function_names.values():
             if token_ids == generated_tokens:
                 return True
         return False
@@ -118,7 +155,7 @@ class TokenConstraints:
         self,
         generated_tokens: list[int],
     ) -> str | None:
-        encoded = self.encode_function_names()
+        encoded = self.encoded_function_names
         for name, token_ids in encoded.items():
             if token_ids == generated_tokens:
                 return name
@@ -190,12 +227,12 @@ class TokenConstraints:
                 if char != '"':
                     self.context.add_value_character(char)
 
-            print(
-                repr(char),
-                "->",
-                valid,
-                self.decoder.state,
-            )
+            # print(
+            #     repr(char),
+            #     "->",
+            #     valid,
+            #     self.decoder.state,
+            # )
 
     def process_token(
         self,

@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/04 15:43:06 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/06 11:19:30 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -193,43 +193,6 @@ def generate_text(
                 ):
                     allowed.add(token_id)
 
-        # # Clés de l'objet "parameters".
-        # elif (
-        #     state in (
-        #         JSONState.EXPECT_KEY_OR_END,
-        #         JSONState.EXPECT_KEY_START,
-        #     )
-        #     and constraints.reading_parameters
-        # ):
-        #     if constraints.current_function is None:
-        #         allowed = set()
-        #     else:
-        #         function = constraints.schema.get_function(
-        #             constraints.current_function
-        #         )
-
-        #         if function is None:
-        #             allowed = set()
-        #         else:
-        #             missing_parameters = (
-        #                 set(function.parameters)
-        #                 - constraints.used_parameters
-        #             )
-
-        #             allowed = {
-        #                 token_id
-        #                 for token_id in constraints.vocab_token_ids
-        #                 if constraints.get_token_text(token_id).strip() == '"'
-        #             }
-
-        #             if missing_parameters:
-        #                 allowed = {
-        #                     token_id
-        #                     for token_id in allowed
-        #                     if constraints.get_token_text(token_id).strip()
-        #                     != "}"
-        #                 }
-
         # Clés de l'objet "parameters".
         elif (
             state in (
@@ -381,11 +344,6 @@ def generate_text(
             )
             break
 
-        constrained_logits = constraints.apply_token_constraint(
-            logits,
-            allowed,
-        )
-
         # Diagnostic ciblé : valeur du champ regex uniquement.
         if (
             constraints.decoder.state == JSONState.VALUE_CONTENT
@@ -395,7 +353,7 @@ def generate_text(
 
             best_ids = sorted(
                 allowed,
-                key=lambda token_id: constrained_logits[token_id],
+                key=lambda token_id: logits[token_id],
                 reverse=True,
             )[:5]
 
@@ -409,7 +367,7 @@ def generate_text(
                 )
                 print(
                     "  score quote après contraintes :",
-                    float(constrained_logits[quote_id]),
+                    float(logits[quote_id]),
                 )
 
             print(
@@ -418,7 +376,7 @@ def generate_text(
                     (
                         token_id,
                         repr(constraints.get_token_text(token_id)),
-                        float(constrained_logits[token_id]),
+                        float(logits[token_id]),
                     )
                     for token_id in best_ids
                 ],
@@ -426,7 +384,7 @@ def generate_text(
 
         next_id = max(
             allowed,
-            key=lambda token_id: constrained_logits[token_id],
+            key=lambda token_id: logits[token_id],
         )
 
         generated.append(next_id)
@@ -539,6 +497,7 @@ def main() -> None:
         print(f"\nPrompt testé : {prompt}")
 
         result = generate_text(model, instruction, constraints)
+        # print("DEBUG résultat brut :", repr(result))
         print("DEBUG résultat brut :", repr(result))
 
         elapsed = time.perf_counter() - start
