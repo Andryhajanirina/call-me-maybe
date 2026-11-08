@@ -7,25 +7,24 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/06 13:21:13 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/08 13:28:08 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
 import json
 import time
 from pathlib import Path
-# from typing import cast
 
 from llm_sdk import Small_LLM_Model
+from pydantic import ValidationError
 
 from .function_schema import FunctionSchema
-from .parsing import parse_args
-from .models import FunctionCallResult, TestInput
-from .token_constraints import TokenConstraints
-from .json_decoder import JSONDecoder
 from .json_context import JSONContext
+from .json_decoder import JSONDecoder
 from .json_state import JSONState
-from pydantic import ValidationError
+from .models import FunctionCallResult, TestInput
+from .parsing import parse_args
+from .token_constraints import TokenConstraints
 
 
 def load_prompts(path: str) -> list[TestInput]:
@@ -34,11 +33,8 @@ def load_prompts(path: str) -> list[TestInput]:
     try:
         with the_path.open("r", encoding="utf-8") as file:
             data = json.load(file)
-
     except FileNotFoundError as e:
-        raise ValueError(
-            f"Function calling file not found: {the_path}"
-        ) from e
+        raise ValueError(f"Function calling file not found: {the_path}") from e
     except json.JSONDecodeError as e:
         raise ValueError(
             f"Invalid JSON in function calling file: {the_path}"
@@ -57,6 +53,23 @@ def load_prompts(path: str) -> list[TestInput]:
         ) from e
 
 
+def _get_tokens_by_text(
+        constraints: TokenConstraints,
+        target_text: str,
+        strip: bool = False
+) -> set[int]:
+    """Returns all token IDs whose text matches exactly."""
+    return {
+        token_id
+        for token_id in constraints.vocab_token_ids
+        if (
+            constraints.get_token_text(token_id).strip()
+            if strip
+            else constraints.get_token_text(token_id)
+        ) == target_text
+    }
+
+
 def generate_text(
     model: Small_LLM_Model,
     prompt: str,
@@ -65,7 +78,6 @@ def generate_text(
 ) -> str:
     """Generate JSON while constraining tokens to valid choices."""
     input_ids = constraints.tokenizer.encode(prompt)
-
     generated: list[int] = []
 
     # Réinitialiser l'état pour cette génération.
@@ -97,11 +109,12 @@ def generate_text(
             state == JSONState.EXPECT_VALUE_START
             and constraints.current_key == "name"
         ):
-            allowed = {
-                token_id
-                for token_id in constraints.vocab_token_ids
-                if constraints.get_token_text(token_id) == '"'
-            }
+            allowed = _get_tokens_by_text(constraints, '"')
+            # allowed = {
+            #     token_id
+            #     for token_id in constraints.vocab_token_ids
+            #     if constraints.get_token_text(token_id) == '"'
+            # }
 
         # Génération du nom de fonction.
         elif (
@@ -130,11 +143,12 @@ def generate_text(
             state == JSONState.EXPECT_VALUE_START
             and constraints.current_key == "parameters"
         ):
-            allowed = {
-                token_id
-                for token_id in constraints.vocab_token_ids
-                if constraints.get_token_text(token_id).strip() == "{"
-            }
+            allowed = _get_tokens_by_text(constraints, "{", strip=True)
+            # allowed = {
+            #     token_id
+            #     for token_id in constraints.vocab_token_ids
+            #     if constraints.get_token_text(token_id).strip() == "{"
+            # }
 
         # Valeurs de paramètres et nombres.
         elif state in (
@@ -154,7 +168,6 @@ def generate_text(
                     "Clé :", constraints.current_key,
                 )
                 break
-
             allowed = constraints.get_allowed_value_tokens()
 
         # Clés de premier niveau : imposer "name", puis "parameters".
@@ -162,19 +175,17 @@ def generate_text(
             state in (JSONState.EXPECT_KEY_OR_END, JSONState.EXPECT_KEY_START)
             and not constraints.reading_parameters
         ):
-            expected_key = (
-                "name" if constraints.current_key == "" else "parameters"
-            )
-            allowed = {
-                token_id
-                for token_id in constraints.vocab_token_ids
-                if constraints.get_token_text(token_id) == '"'
-            }
+            allowed = _get_tokens_by_text(constraints, '"')
+            # allowed = {
+            #     token_id
+            #     for token_id in constraints.vocab_token_ids
+            #     if constraints.get_token_text(token_id) == '"'
+            # }
 
         # Contenu des clés de premier niveau.
         elif (
-                state == JSONState.KEY_CONTENT
-                and not constraints.reading_parameters
+            state == JSONState.KEY_CONTENT
+            and not constraints.reading_parameters
         ):
             expected_key = (
                 "name" if constraints.current_key == "" else "parameters"
@@ -184,7 +195,6 @@ def generate_text(
 
             for token_id in constraints.vocab_token_ids:
                 token_text = constraints.get_token_text(token_id)
-
                 if token_text == '"' and partial_key == expected_key:
                     allowed.add(token_id)
                 elif (
@@ -196,48 +206,35 @@ def generate_text(
 
         # Clés de l'objet "parameters".
         elif (
-            state in (
-                JSONState.EXPECT_KEY_OR_END,
-                JSONState.EXPECT_KEY_START,
-            )
+            state in (JSONState.EXPECT_KEY_OR_END, JSONState.EXPECT_KEY_START)
             and constraints.reading_parameters
             and len(constraints.decoder.object_stack) == 2
         ):
-            if constraints.current_function is None:
-                allowed = set()
-            else:
+            if constraints.current_function is not None:
                 function = constraints.schema.get_function(
                     constraints.current_function
                 )
-
-                if function is None:
-                    allowed = set()
-                else:
+                if function is not None:
                     missing_parameters = (
-                        set(function.parameters)
-                        - constraints.used_parameters
+                        set(function.parameters) - constraints.used_parameters
                     )
-
-                    allowed = set()
-
-                    # Autoriser une nouvelle clé uniquement
-                    # s'il reste des paramètres obligatoires.
                     if missing_parameters:
-                        allowed = {
-                            token_id
-                            for token_id in constraints.vocab_token_ids
-                            if constraints.get_token_text(token_id) == '"'
-                        }
-
-                    # Autoriser la fermeture uniquement lorsque
-                    # tous les paramètres obligatoires sont présents.
+                        allowed = _get_tokens_by_text(constraints, '"')
+                        # allowed = {
+                        #     token_id
+                        #     for token_id in constraints.vocab_token_ids
+                        #     if constraints.get_token_text(token_id) == '"'
+                        # }
                     elif state == JSONState.EXPECT_KEY_OR_END:
-                        allowed = {
-                            token_id
-                            for token_id in constraints.vocab_token_ids
-                            if constraints.get_token_text(token_id).strip()
-                            == "}"
-                        }
+                        allowed = (
+                            _get_tokens_by_text(constraints, "}", strip=True)
+                        )
+                        # allowed = {
+                        #     token_id
+                        #     for token_id in constraints.vocab_token_ids
+                        #     if constraints.get_token_text(token_id).strip()
+                        #     == "}"
+                        # }
 
         # Contenu des clés de l'objet "parameters".
         elif (
@@ -245,46 +242,29 @@ def generate_text(
             and constraints.reading_parameters
             and len(constraints.decoder.object_stack) == 2
         ):
-            if constraints.current_function is None:
-                allowed = set()
-            else:
+            if constraints.current_function is not None:
                 function = constraints.schema.get_function(
                     constraints.current_function
                 )
-
-                if function is None:
-                    allowed = set()
-                else:
+                if function is not None:
                     missing_parameters = (
-                        set(function.parameters)
-                        - constraints.used_parameters
+                        set(function.parameters) - constraints.used_parameters
                     )
-
                     partial_key = constraints.context.current_key
                     allowed = set()
 
                     for token_id in constraints.vocab_token_ids:
                         token_text = constraints.get_token_text(token_id)
-
                         if not token_text:
                             continue
 
-                        # Le token continue le nom d'un paramètre.
-                        if (
-                            '"' not in token_text
-                            and any(
-                                parameter.startswith(
-                                    partial_key + token_text
-                                )
-                                for parameter in missing_parameters
-                            )
+                        if '"' not in token_text and any(
+                            parameter.startswith(partial_key + token_text)
+                            for parameter in missing_parameters
                         ):
                             allowed.add(token_id)
-
-                        # Le token termine exactement le nom attendu.
                         elif '"' in token_text:
                             key_part = token_text.split('"', 1)[0]
-
                             if partial_key + key_part in missing_parameters:
                                 allowed.add(token_id)
 
@@ -294,21 +274,14 @@ def generate_text(
             and constraints.reading_parameters
             and len(constraints.decoder.object_stack) == 2
         ):
-            if constraints.current_function is None:
-                allowed = set()
-            else:
+            if constraints.current_function is not None:
                 function = constraints.schema.get_function(
                     constraints.current_function
                 )
-
-                if function is None:
-                    allowed = set()
-                else:
+                if function is not None:
                     missing_parameters = (
-                        set(function.parameters)
-                        - constraints.used_parameters
+                        set(function.parameters) - constraints.used_parameters
                     )
-
                     allowed = {
                         token_id
                         for token_id in constraints.vocab_token_ids
@@ -331,9 +304,7 @@ def generate_text(
 
         # Ne conserver que les identifiants présents dans les logits.
         allowed = {
-            token_id
-            for token_id in allowed
-            if 0 <= token_id < len(logits)
+            token_id for token_id in allowed if 0 <= token_id < len(logits)
         }
 
         if not allowed:
@@ -350,27 +321,12 @@ def generate_text(
             constraints.decoder.state == JSONState.VALUE_CONTENT
             and constraints.current_key == "regex"
         ):
-            quote_id = 1
-
             best_ids = sorted(
                 allowed,
                 key=lambda token_id: logits[token_id],
                 reverse=True,
             )[:5]
-
             print("DEBUG regex :")
-            print("  quote autorisé :", quote_id in allowed)
-
-            if quote_id in allowed:
-                print(
-                    "  score quote avant contraintes :",
-                    float(logits[quote_id]),
-                )
-                print(
-                    "  score quote après contraintes :",
-                    float(logits[quote_id]),
-                )
-
             print(
                 "  meilleurs tokens après contraintes :",
                 [
@@ -383,10 +339,7 @@ def generate_text(
                 ],
             )
 
-        next_id = max(
-            allowed,
-            key=lambda token_id: logits[token_id],
-        )
+        next_id = max(allowed, key=lambda token_id: logits[token_id])
 
         generated.append(next_id)
         input_ids.append(next_id)
@@ -429,7 +382,6 @@ def main() -> None:
     prompts = load_prompts(args.input)
 
     model = Small_LLM_Model()
-
     constraints = TokenConstraints(model, schema)
 
     allowed = constraints.get_allowed_first_function_tokens()
@@ -448,57 +400,56 @@ def main() -> None:
     # prompts = prompts[:4]
     print(f"Nombre de prompts à tester : {len(prompts)}")
 
-    for i in range(len(prompts)):
-        prompt = prompts[i].prompt
+    base_instruction = (
+        "You are a function-calling assistant. "
+        "Choose the function that best matches the user's request. "
+        "Return ONLY one valid JSON object with exactly "
+        "two top-level keys: 'name' and 'parameters'. "
+        "The 'name' field must contain the exact function name. "
+        "The 'parameters' field must contain the function arguments "
+        "with their exact parameter names.\n\n"
 
-        instruction = (
-            "You are a function-calling assistant. "
-            "Choose the function that best matches the user's request. "
-            "Return ONLY one valid JSON object with exactly "
-            "two top-level keys: 'name' and 'parameters'. "
-            "The 'name' field must contain the exact function name. "
-            "The 'parameters' field must contain the function arguments "
-            "with their exact parameter names.\n\n"
+        "Formatting rules for string parameters:\n"
+        "- Preserve the requested text but "
+        "do NOT include the quotation marks used only "
+        "to delimit the text in the user's request.\n"
+        "- Values must contain only the requested text, "
+        "not quotation marks used to delimit it in the prompt.\n"
+        "- Never add leading or trailing whitespace to string values.\n\n"
 
-            "Formatting rules for string parameters:\n"
-            "- Preserve the requested text but "
-            "do NOT include the quotation marks used only "
-            "to delimit the text in the user's request.\n"
-            "- Values must contain only the requested text, "
-            "not quotation marks used to delimit it in the prompt.\n"
-            "- Never add leading or trailing whitespace to string values.\n\n"
+        "Formatting rules for regex parameters:\n"
+        "- The parameter value must be a valid JavaScript regex pattern "
+        '(e.g., "/[aeiouy]/gi") wrapped as a JSON string.\n'
+        "- Analyze the user's text-processing request and "
+        "design a pattern that precisely matches the target.\n"
+        "- Group all flags at the very end of the regex literal "
+        "(e.g., /pattern/gi).\n"
+        "- Do NOT add unnecessary flags "
+        "(e.g., do not use 'i' if the pattern only matches digits).\n"
+        "- Do NOT add unnecessary capture groups '()' or "
+        "word boundaries unless necessary.\n"
+        "- Be linguistically precise "
+        "(e.g., if matching vowels in a context that includes 'y' "
+        "as a vowel, include 'y'; always support case-insensitivity 'i' "
+        "for letters unless specified otherwise).\n\n"
 
-            "Formatting rules for regex parameters:\n"
-            "- The parameter value must be a valid JavaScript regex pattern "
-            "(e.g., \"/[aeiouy]/gi\") wrapped as a JSON string.\n"
-            "- Analyze the user's text-processing request and "
-            "design a pattern that precisely matches the target.\n"
-            "- Group all flags at the very end of the regex literal "
-            "(e.g., /pattern/gi).\n"
-            "- Do NOT add unnecessary flags "
-            "(e.g., do not use 'i' if the pattern only matches digits).\n"
-            "- Do NOT add unnecessary capture groups '()' or "
-            "word boundaries unless necessary.\n"
-            "- Be linguistically precise "
-            "(e.g., if matching vowels in a context that includes 'y' "
-            "as a vowel, include 'y'; always support case-insensitivity 'i' "
-            "for letters unless specified otherwise).\n\n"
+        "Strict Output Constraint:\n"
+        "Return ONLY the valid JSON object. "
+        "Do NOT include markdown code blocks (like ```json), "
+        "explanations, or extra commentary outside the JSON.\n\n"
+        f"Available functions:\n{functions_description}\n\n"
+        "User request: {prompt}\n"
+        "JSON:"
+    )
 
-            "Strict Output Constraint:\n"
-            "Return ONLY the valid JSON object. "
-            "Do NOT include markdown code blocks (like ```json), "
-            "explanations, or extra commentary outside the JSON.\n\n"
-
-            f"Available functions:\n{functions_description}\n\n"
-            f"User request: {prompt}\n"
-            "JSON:"
-        )
+    for item in prompts:
+        prompt = item.prompt
+        instruction = base_instruction.format(prompt=prompt)
 
         start = time.perf_counter()
         print(f"\nPrompt testé : {prompt}")
 
         result = generate_text(model, instruction, constraints)
-        # print("DEBUG résultat brut :", repr(result))
         print("DEBUG résultat brut :", repr(result))
 
         elapsed = time.perf_counter() - start
