@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/16 10:16:00 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/16 11:57:28 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -397,7 +397,7 @@ def main() -> None:
     # prompts = prompts[8:]
     # prompts = prompts[2:6]
     # prompts = prompts[5:8]
-    prompts = prompts[:4]
+    # prompts = prompts[:4]
     print(f"Nombre de prompts à tester : {len(prompts)}")
 
     base_instruction = (
