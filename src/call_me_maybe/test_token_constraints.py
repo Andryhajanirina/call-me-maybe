@@ -992,7 +992,7 @@ def test_exponent_number_allows_valid_terminators(
 def test_integer_parameter_types(
     model: Small_LLM_Model,
 ) -> None:
-    """Test that int and integer schemas allow integer tokens only."""
+    """Test that int and integer schemas allow decimal number tokens."""
     import tempfile
 
     schema_data = [
@@ -1047,21 +1047,37 @@ def test_integer_parameter_types(
                 token_id = constraints.tokenizer.encode(digit)[0]
                 assert token_id in allowed
 
-            # After zero: no decimal or exponent.
+            # After zero: decimal notation is allowed.
             constraints.decoder.state = JSONState.EXPECT_ZERO_END
             allowed = constraints.get_allowed_value_tokens()
 
-            for char in ".eE":
+            for char in ".":
+                token_id = constraints.tokenizer.encode(char)[0]
+                assert token_id in allowed
+
+            for char in "eE":
                 token_id = constraints.tokenizer.encode(char)[0]
                 assert token_id not in allowed
 
-            # After a complete integer.
+            # After a complete integer:
+            # decimal notation are allowed.
             constraints.decoder.state = JSONState.VALUE_NUMBER
             allowed = constraints.get_allowed_value_tokens()
 
-            for char in ".eE":
+            token_id = constraints.tokenizer.encode(".")[0]
+            assert token_id in allowed
+
+            for char in "eE":
                 token_id = constraints.tokenizer.encode(char)[0]
                 assert token_id not in allowed
+
+            # After a decimal point: at least one digit is required.
+            constraints.decoder.state = JSONState.EXPECT_FRACTION_DIGIT
+            allowed = constraints.get_allowed_value_tokens()
+
+            for digit in "0123456789":
+                token_id = constraints.tokenizer.encode(digit)[0]
+                assert token_id in allowed
 
 
 def main() -> None:

@@ -77,14 +77,45 @@ def test_integer_types_are_normalized_to_int(
     assert isinstance(result["integer_value"], int)
 
 
-def test_fractional_value_is_rejected_for_integer(
-        schema: FunctionSchema
+# def test_fractional_value_is_rejected_for_integer(
+#         schema: FunctionSchema
+# ) -> None:
+#     with pytest.raises(ValueError):
+#         schema.normalize_parameters(
+#             "fn_test",
+#             {"int_value": 2.5},
+#         )
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (26.4, 26),
+        (26.5, 27),
+        (26.6, 27),
+        (34.5, 35),
+        (-26.4, -26),
+        (-26.5, -27),
+        (-26.6, -27),
+        (26, 26),
+        (26.0, 26),
+    ],
+)
+@pytest.mark.parametrize(
+    "parameter_name",
+    ["int_value", "integer_value"],
+)
+def test_integer_values_are_rounded(
+    schema: FunctionSchema,
+    value: int | float,
+    expected: int,
+    parameter_name: str,
 ) -> None:
-    with pytest.raises(ValueError):
-        schema.normalize_parameters(
-            "fn_test",
-            {"int_value": 2.5},
-        )
+    result = normalize_with_defaults(
+        schema,
+        {parameter_name: value},
+    )
+
+    assert result[parameter_name] == expected
+    assert isinstance(result[parameter_name], int)
 
 
 def test_boolean_is_rejected_as_number(

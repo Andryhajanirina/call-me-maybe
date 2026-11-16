@@ -7,13 +7,14 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:41:52 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/08 13:58:19 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/16 11:15:57 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
 import json
 from pathlib import Path
 from typing import Any
+from decimal import Decimal, ROUND_HALF_UP
 
 from .models import FunctionDefinition
 
@@ -89,13 +90,20 @@ class FunctionSchema:
                         f"Parameter '{name}' must be an integer"
                     )
 
-                if isinstance(value, float) and not value.is_integer():
-                    raise ValueError(
-                        f"Parameter '{name}' must be an integer, "
-                        f"got {value}"
-                    )
+                # # Round to the nearest integer, with .5 away from zero.
+                # if isinstance(value, float):
+                #     if value >= 0:
+                #         normalized[name] = int(value + 0.5)
+                #     else:
+                #         normalized[name] = int(value - 0.5)
+                # else:
+                #     normalized[name] = value
+                rounded_value = Decimal(str(value)).quantize(
+                    Decimal("1"),
+                    rounding=ROUND_HALF_UP,
+                )
 
-                normalized[name] = int(value)
+                normalized[name] = int(rounded_value)
 
             elif parameter_type == "string":
                 if not isinstance(value, str):

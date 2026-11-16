@@ -1,18 +1,34 @@
 [
   {
-    "prompt": "Return the result of multiplication of 26.5 and 34.5?",
-    "name": "fn_mult_integer",
+    "prompt": "What is the sum of -2 and -3?",
+    "name": "fn_add_numbers",
     "parameters": {
-      "a": 265,
-      "b": 345
+      "a": -2.0,
+      "b": -3.0
     }
   },
   {
-    "prompt": "Multiply 26 and 3?",
+    "prompt": "What is the sum of 265 and 345?",
+    "name": "fn_add_numbers",
+    "parameters": {
+      "a": 265.0,
+      "b": 345.0
+    }
+  },
+  {
+    "prompt": "What is the sum of ten and two?",
+    "name": "fn_add_numbers",
+    "parameters": {
+      "a": 10.0,
+      "b": 2.0
+    }
+  },
+  {
+    "prompt": "Return the result of multiplication of 26.5 and 34.5?",
     "name": "fn_mult_integer",
     "parameters": {
-      "a": 26,
-      "b": 3
+      "a": 27,
+      "b": 35
     }
   }
 ]

@@ -1,9 +1,12 @@
 [
   {
-    "prompt": "What is the sum of 2 and 3?"
+    "prompt": "What is the sum of -2 and -3?"
   },
   {
     "prompt": "What is the sum of 265 and 345?"
+  },
+  {
+    "prompt": "What is the sum of ten and two?"
   },
   {
     "prompt": "Return the result of multiplication of 26.5 and 34.5?"

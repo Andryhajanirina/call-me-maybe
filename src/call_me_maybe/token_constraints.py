@@ -304,6 +304,16 @@ class TokenConstraints:
 
                 return allowed
 
+            # After a decimal point, at least one digit is required.
+            if state == JSONState.EXPECT_FRACTION_DIGIT:
+                allowed = set()
+
+                for digit in "0123456789":
+                    token_ids = self.tokenizer.encode(digit)
+                    allowed.add(token_ids[0])
+
+                return allowed
+
             # After zero or a complete integer, allow only
             # integer digits or valid JSON number terminators.
             if state in (
@@ -311,7 +321,8 @@ class TokenConstraints:
                 JSONState.VALUE_NUMBER,
             ):
                 allowed = set()
-                valid_chars = "0123456789,} \t\r\n"
+                # valid_chars = "0123456789.eE+- ,} \t\r\n"
+                valid_chars = "0123456789.,} \t\r\n"
 
                 for token_id in self.vocab_token_ids:
                     token_text = self.get_token_text(token_id)
