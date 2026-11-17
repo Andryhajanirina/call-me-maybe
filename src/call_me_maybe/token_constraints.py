@@ -1,4 +1,3 @@
-import json
 from llm_sdk import Small_LLM_Model
 
 from .function_schema import FunctionSchema
@@ -37,27 +36,28 @@ class TokenConstraints:
             merges_path=model.get_path_to_merges_file(),
         )
         self.token_text_cache: dict[int, str] = {}
-        # self.vocab_token_ids: set[int] = set(
-        #     self.tokenizer.id_to_token.keys()
-        # )
-        # self.build_string_start_tokens()
         self.vocab_token_ids: set[int] = set(
             self.tokenizer.id_to_token.keys()
         )
-
-        # Index des tokens simples utilisés fréquemment.
-        self.quote_tokens: set[int] = set()
-        self.open_brace_tokens: set[int] = set()
-        self.close_brace_tokens: set[int] = set()
-        self.character_tokens: dict[str, int] = {}
 
         self.build_token_indexes()
         self.used_parameters: set[str] = set()
         self.encoded_function_names = self.encode_function_names()
 
-    def build_token_indexes(self) -> None:
-        """Build indexes for frequently used vocabulary tokens."""
+    def reset(self) -> None:
+        """Reset the state before a new generation."""
+        self.decoder = JSONDecoder()
+        self.context = JSONContext()
+        self.current_function = None
+        self.current_key = ""
+        self.current_parameter = None
+        self.function_name_tokens = []
+        self.reading_function_name = False
+        self.reading_parameters = False
+        self.used_parameters = set()
 
+    def build_token_indexes(self) -> None:
+        """Build indexes for tokens that can start JSON strings."""
         self.string_start_tokens.clear()
 
         for token_id in self.vocab_token_ids:
@@ -65,21 +65,6 @@ class TokenConstraints:
 
             if token_text.startswith('"'):
                 self.string_start_tokens.add(token_id)
-
-            if token_text == '"':
-                self.quote_tokens.add(token_id)
-
-            if token_text.strip() == "{":
-                self.open_brace_tokens.add(token_id)
-
-            if token_text.strip() == "}":
-                self.close_brace_tokens.add(token_id)
-
-        for char in '-+0123456789.eE':
-            token_ids = self.tokenizer.encode(char)
-
-            if token_ids:
-                self.character_tokens[char] = token_ids[0]
 
     def encode_function_names(self) -> dict[str, list[int]]:
         """Encode all available function names into token ID lists.
@@ -105,27 +90,6 @@ class TokenConstraints:
             for token_ids in encoded.values()
             if token_ids
         }
-
-    def apply_token_constraint(
-        self,
-        logits: list[float],
-        allowed_token_ids: set[int],
-    ) -> list[float]:
-        """Set disallowed token logits to negative infinity.
-
-        Args:
-            logits: Raw model logits for the next token.
-            allowed_token_ids: Token IDs allowed by the constraints.
-
-        Returns:
-            Logits with disallowed tokens masked.
-        """
-        constrained = [float("-inf")] * len(logits)
-
-        for token_id in allowed_token_ids:
-            constrained[token_id] = logits[token_id]
-
-        return constrained
 
     def get_allowed_next_tokens(
         self,
@@ -227,13 +191,6 @@ class TokenConstraints:
                 if char != '"':
                     self.context.add_value_character(char)
 
-            # print(
-            #     repr(char),
-            #     "->",
-            #     valid,
-            #     self.decoder.state,
-            # )
-
     def process_token(
         self,
         token_id: int,
@@ -321,7 +278,6 @@ class TokenConstraints:
                 JSONState.VALUE_NUMBER,
             ):
                 allowed = set()
-                # valid_chars = "0123456789.eE+- ,} \t\r\n"
                 valid_chars = "0123456789.,} \t\r\n"
 
                 for token_id in self.vocab_token_ids:
@@ -414,21 +370,6 @@ class TokenConstraints:
             return allowed
 
         return set()
-
-    def starts_json_string(self, token_id: int) -> bool:
-        token_text = self.get_token_text(token_id)
-        return token_text.startswith('"')
-
-    def build_string_start_tokens(self) -> None:
-        vocab_path = self.model.get_path_to_vocab_file()
-
-        with open(vocab_path, encoding="utf-8") as file:
-            vocab = json.load(file)
-
-        for token_id in vocab.values():
-            token_text = self.get_token_text(token_id)
-            if token_text.startswith('"'):
-                self.string_start_tokens.add(token_id)
 
     def is_token_valid(self, token_id: int) -> bool:
         """Check whether a token preserves JSON syntax."""

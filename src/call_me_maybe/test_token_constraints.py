@@ -64,69 +64,6 @@ def test_string_content(
     assert 1 in allowed
 
 
-def test_apply_token_constraint(
-    model: Small_LLM_Model,
-    constraints: TokenConstraints,
-) -> None:
-    """Test that disallowed token logits become negative infinity."""
-    constraints.current_function = "fn_greet"
-    constraints.current_parameter = "name"
-    constraints.decoder.state = JSONState.EXPECT_VALUE_START
-    constraints.decoder.object_stack = ["object"]
-
-    allowed = constraints.get_allowed_value_tokens()
-
-    test_token_ids = [1, 17, 90, 29133, 45916]
-    logits = [0.0] * model._tokenizer.vocab_size
-
-    logits[1] = 1.0
-    logits[17] = 10.0
-    logits[90] = 8.0
-    logits[29133] = 7.0
-    logits[45916] = 6.0
-
-    constrained = constraints.apply_token_constraint(
-        logits,
-        allowed,
-    )
-
-    print("\n=== Application des contraintes ===")
-
-    for token_id in test_token_ids:
-        print(
-            token_id,
-            repr(model.decode([token_id])),
-            "| Autorisé :", token_id in allowed,
-            "| Logit :", constrained[token_id],
-        )
-
-    for token_id in allowed:
-        assert constrained[token_id] == logits[token_id]
-
-    for token_id in test_token_ids:
-        if token_id not in allowed:
-            assert constrained[token_id] == float("-inf")
-
-    assert constrained[1] == 1.0
-    assert constrained[17] == float("-inf")
-    assert constrained[90] == float("-inf")
-    assert constrained[29133] == 7.0
-    assert constrained[45916] == 6.0
-
-    selected_token_id = max(
-        test_token_ids,
-        key=lambda token_id: constrained[token_id],
-    )
-
-    print(
-        "Token sélectionné :",
-        selected_token_id,
-        repr(model.decode([selected_token_id])),
-    )
-
-    assert selected_token_id == 29133
-
-
 def inspect_tokenizer_files(model: Small_LLM_Model) -> None:
     """Inspect the tokenizer configuration and BPE merges."""
     tokenizer_path = model.get_path_to_tokenizer_file()
@@ -934,8 +871,6 @@ def test_allowed_tokens_for_string_parameter(
     constraints.current_parameter = "name"
     constraints.decoder.state = JSONState.EXPECT_VALUE_START
 
-    constraints.build_string_start_tokens()
-
     allowed = constraints.get_allowed_value_tokens()
 
     assert allowed
@@ -1101,11 +1036,9 @@ def main() -> None:
     )
 
     constraints = TokenConstraints(model, schema)
-    constraints.build_string_start_tokens()
 
     test_string_start_tokens(model, constraints)
     test_string_content(constraints)
-    test_apply_token_constraint(model, constraints)
 
     test_token_text_cache(constraints)
 
