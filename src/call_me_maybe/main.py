@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/17 11:47:23 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/17 16:18:10 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -19,8 +19,6 @@ from llm_sdk import Small_LLM_Model
 from pydantic import ValidationError
 
 from .function_schema import FunctionSchema
-from .json_context import JSONContext
-from .json_decoder import JSONDecoder
 from .json_state import JSONState
 from .models import FunctionCallResult, TestInput
 from .parsing import parse_args
@@ -54,20 +52,15 @@ def load_prompts(path: str) -> list[TestInput]:
 
 
 def _get_tokens_by_text(
-        constraints: TokenConstraints,
-        target_text: str,
-        strip: bool = False
+    constraints: TokenConstraints,
+    target_text: str,
+    strip: bool = False,
 ) -> set[int]:
-    """Returns all token IDs whose text matches exactly."""
-    return {
-        token_id
-        for token_id in constraints.vocab_token_ids
-        if (
-            constraints.get_token_text(token_id).strip()
-            if strip
-            else constraints.get_token_text(token_id)
-        ) == target_text
-    }
+    """Return all token IDs whose text matches exactly."""
+    return constraints.get_tokens_by_text(
+        target_text,
+        strip=strip,
+    )
 
 
 def generate_text(
@@ -80,16 +73,7 @@ def generate_text(
     input_ids = constraints.tokenizer.encode(prompt)
     generated: list[int] = []
 
-    # Réinitialiser l'état pour cette génération.
-    constraints.decoder = JSONDecoder()
-    constraints.context = JSONContext()
-    constraints.current_function = None
-    constraints.current_key = ""
-    constraints.current_parameter = None
-    constraints.function_name_tokens = []
-    constraints.reading_function_name = False
-    constraints.reading_parameters = False
-    constraints.used_parameters = set()
+    constraints.reset()
 
     logits_time = 0.0
     constraints_time = 0.0
@@ -110,11 +94,6 @@ def generate_text(
             and constraints.current_key == "name"
         ):
             allowed = _get_tokens_by_text(constraints, '"')
-            # allowed = {
-            #     token_id
-            #     for token_id in constraints.vocab_token_ids
-            #     if constraints.get_token_text(token_id) == '"'
-            # }
 
         # Génération du nom de fonction.
         elif (
@@ -144,11 +123,6 @@ def generate_text(
             and constraints.current_key == "parameters"
         ):
             allowed = _get_tokens_by_text(constraints, "{", strip=True)
-            # allowed = {
-            #     token_id
-            #     for token_id in constraints.vocab_token_ids
-            #     if constraints.get_token_text(token_id).strip() == "{"
-            # }
 
         # Valeurs de paramètres et nombres.
         elif state in (
@@ -176,11 +150,6 @@ def generate_text(
             and not constraints.reading_parameters
         ):
             allowed = _get_tokens_by_text(constraints, '"')
-            # allowed = {
-            #     token_id
-            #     for token_id in constraints.vocab_token_ids
-            #     if constraints.get_token_text(token_id) == '"'
-            # }
 
         # Contenu des clés de premier niveau.
         elif (
@@ -193,8 +162,7 @@ def generate_text(
             partial_key = constraints.context.current_key
             allowed = set()
 
-            for token_id in constraints.vocab_token_ids:
-                token_text = constraints.get_token_text(token_id)
+            for token_id, token_text in constraints.vocab_tokens:
                 if token_text == '"' and partial_key == expected_key:
                     allowed.add(token_id)
                 elif (
@@ -211,30 +179,13 @@ def generate_text(
             and len(constraints.decoder.object_stack) == 2
         ):
             if constraints.current_function is not None:
-                function = constraints.schema.get_function(
-                    constraints.current_function
-                )
-                if function is not None:
-                    missing_parameters = (
-                        set(function.parameters) - constraints.used_parameters
+                missing_parameters = constraints.get_missing_parameters()
+                if missing_parameters:
+                    allowed = _get_tokens_by_text(constraints, '"')
+                elif state == JSONState.EXPECT_KEY_OR_END:
+                    allowed = (
+                        _get_tokens_by_text(constraints, "}", strip=True)
                     )
-                    if missing_parameters:
-                        allowed = _get_tokens_by_text(constraints, '"')
-                        # allowed = {
-                        #     token_id
-                        #     for token_id in constraints.vocab_token_ids
-                        #     if constraints.get_token_text(token_id) == '"'
-                        # }
-                    elif state == JSONState.EXPECT_KEY_OR_END:
-                        allowed = (
-                            _get_tokens_by_text(constraints, "}", strip=True)
-                        )
-                        # allowed = {
-                        #     token_id
-                        #     for token_id in constraints.vocab_token_ids
-                        #     if constraints.get_token_text(token_id).strip()
-                        #     == "}"
-                        # }
 
         # Contenu des clés de l'objet "parameters".
         elif (
@@ -243,30 +194,25 @@ def generate_text(
             and len(constraints.decoder.object_stack) == 2
         ):
             if constraints.current_function is not None:
-                function = constraints.schema.get_function(
-                    constraints.current_function
-                )
-                if function is not None:
-                    missing_parameters = (
-                        set(function.parameters) - constraints.used_parameters
-                    )
-                    partial_key = constraints.context.current_key
-                    allowed = set()
+                missing_parameters = constraints.get_missing_parameters()
+                partial_key = constraints.context.current_key
+                allowed = set()
 
-                    for token_id in constraints.vocab_token_ids:
-                        token_text = constraints.get_token_text(token_id)
-                        if not token_text:
-                            continue
+                for token_id, token_text in constraints.vocab_tokens:
+                    if not token_text:
+                        continue
 
-                        if '"' not in token_text and any(
-                            parameter.startswith(partial_key + token_text)
-                            for parameter in missing_parameters
-                        ):
+                    if '"' not in token_text and any(
+                        parameter.startswith(partial_key + token_text)
+                        for parameter in missing_parameters
+                    ):
+                        allowed.add(token_id)
+
+                    elif '"' in token_text:
+                        key_part = token_text.split('"', 1)[0]
+
+                        if partial_key + key_part in missing_parameters:
                             allowed.add(token_id)
-                        elif '"' in token_text:
-                            key_part = token_text.split('"', 1)[0]
-                            if partial_key + key_part in missing_parameters:
-                                allowed.add(token_id)
 
         # Empêcher de fermer parameters si des champs obligatoires manquent.
         elif (
@@ -275,22 +221,25 @@ def generate_text(
             and len(constraints.decoder.object_stack) == 2
         ):
             if constraints.current_function is not None:
-                function = constraints.schema.get_function(
-                    constraints.current_function
-                )
-                if function is not None:
-                    missing_parameters = (
-                        set(function.parameters) - constraints.used_parameters
+                missing_parameters = constraints.get_missing_parameters()
+                # allowed = {
+                #     token_id
+                #     for token_id in constraints.vocab_token_ids
+                #     if constraints.is_token_valid(token_id)
+                #     and not (
+                #         missing_parameters
+                #         and "}" in constraints.get_token_text(token_id)
+                #     )
+                # }
+                allowed = {
+                    token_id
+                    for token_id, token_text in constraints.vocab_tokens
+                    if constraints.is_token_valid(token_id)
+                    and not (
+                        missing_parameters
+                        and "}" in token_text
                     )
-                    allowed = {
-                        token_id
-                        for token_id in constraints.vocab_token_ids
-                        if constraints.is_token_valid(token_id)
-                        and not (
-                            missing_parameters
-                            and "}" in constraints.get_token_text(token_id)
-                        )
-                    }
+                }
 
         # Autres états du décodeur JSON.
         else:
@@ -371,7 +320,7 @@ def generate_text(
             f"tokens générés = {tokens_generated}/{max_new_tokens}"
         )
 
-    return model.decode(generated)
+    return constraints.tokenizer.decode(generated)
 
 
 def main() -> None:

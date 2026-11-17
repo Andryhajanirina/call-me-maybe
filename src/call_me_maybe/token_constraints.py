@@ -35,11 +35,21 @@ class TokenConstraints:
             tokenizer_path=model.get_path_to_tokenizer_file(),
             merges_path=model.get_path_to_merges_file(),
         )
+        self.numeric_character_tokens = {
+            char: self.tokenizer.encode(char)[0]
+            for char in "-+0123456789.eE"
+        }
         self.token_text_cache: dict[int, str] = {}
         self.vocab_token_ids: set[int] = set(
             self.tokenizer.id_to_token.keys()
         )
 
+        self.vocab_tokens = [
+            (token_id, self.get_token_text(token_id))
+            for token_id in self.vocab_token_ids
+        ]
+
+        self.token_ids_by_text: dict[str, set[int]] = {}
         self.build_token_indexes()
         self.used_parameters: set[str] = set()
         self.encoded_function_names = self.encode_function_names()
@@ -56,15 +66,42 @@ class TokenConstraints:
         self.reading_parameters = False
         self.used_parameters = set()
 
-    def build_token_indexes(self) -> None:
-        """Build indexes for tokens that can start JSON strings."""
-        self.string_start_tokens.clear()
+    def get_character_tokens(self, characters: str) -> set[int]:
+        """Return precomputed token IDs for the given characters."""
+        return {
+            self.numeric_character_tokens[char]
+            for char in characters
+        }
 
-        for token_id in self.vocab_token_ids:
-            token_text = self.get_token_text(token_id)
+    def build_token_indexes(self) -> None:
+        """Build indexes for frequently used token texts."""
+        self.string_start_tokens.clear()
+        self.token_ids_by_text.clear()
+
+        for token_id, token_text in self.vocab_tokens:
+            self.token_ids_by_text.setdefault(
+                token_text, set()
+            ).add(token_id)
 
             if token_text.startswith('"'):
                 self.string_start_tokens.add(token_id)
+
+    def get_tokens_by_text(
+        self,
+        target_text: str,
+        strip: bool = False,
+    ) -> set[int]:
+        """Return token IDs matching the requested text."""
+        if not strip:
+            return self.token_ids_by_text.get(
+                target_text, set()
+            ).copy()
+
+        return {
+            token_id
+            for token_id, token_text in self.vocab_tokens
+            if token_text.strip() == target_text
+        }
 
     def encode_function_names(self) -> dict[str, list[int]]:
         """Encode all available function names into token ID lists.
@@ -214,17 +251,10 @@ class TokenConstraints:
 
         self.update_current_function(self.function_name_tokens)
 
-    # """Return tokens allowed by the current parameter type and JSON state."""
     def get_allowed_value_tokens(self) -> set[int]:
         """
         Determine and return the set of token IDs allowed by the
-        current parameter type and the internal state of the
-        JSON decoder.
-
-        This method dynamically enforces syntax constraints by
-        inspecting the current JSON validation state and the target
-        data type (string, integer, or number) to restrict the
-        next generated tokens.
+        current parameter type and JSON decoder state.
 
         Returns:
             set[int]: A set of allowed token IDs that satisfy both
@@ -243,33 +273,15 @@ class TokenConstraints:
 
             # Beginning of an integer: allow minus or digits.
             if state == JSONState.EXPECT_VALUE_START:
-                allowed = set()
-
-                for char in "-0123456789":
-                    token_ids = self.tokenizer.encode(char)
-                    allowed.add(token_ids[0])
-
-                return allowed
+                return self.get_character_tokens("-0123456789")
 
             # After a minus sign, at least one digit is required.
             if state == JSONState.EXPECT_NUMBER_DIGIT:
-                allowed = set()
-
-                for digit in "0123456789":
-                    token_ids = self.tokenizer.encode(digit)
-                    allowed.add(token_ids[0])
-
-                return allowed
+                return self.get_character_tokens("0123456789")
 
             # After a decimal point, at least one digit is required.
             if state == JSONState.EXPECT_FRACTION_DIGIT:
-                allowed = set()
-
-                for digit in "0123456789":
-                    token_ids = self.tokenizer.encode(digit)
-                    allowed.add(token_ids[0])
-
-                return allowed
+                return self.get_character_tokens("0123456789")
 
             # After zero or a complete integer, allow only
             # integer digits or valid JSON number terminators.
@@ -280,8 +292,7 @@ class TokenConstraints:
                 allowed = set()
                 valid_chars = "0123456789.,} \t\r\n"
 
-                for token_id in self.vocab_token_ids:
-                    token_text = self.get_token_text(token_id)
+                for token_id, token_text in self.vocab_tokens:
 
                     if not token_text:
                         continue
@@ -302,10 +313,9 @@ class TokenConstraints:
             # After a complete exponent, allow any token that preserves
             # valid JSON syntax, including the end of the number.
             if state == JSONState.EXPECT_EXPONENT_NUMBER:
-                allowed: set[int] = set()
+                allowed = set()
 
-                for token_id in self.vocab_token_ids:
-                    token_text = self.get_token_text(token_id)
+                for token_id, token_text in self.vocab_tokens:
 
                     if (
                         token_text
@@ -321,28 +331,15 @@ class TokenConstraints:
             }
 
             if state in digit_states:
-                allowed = set()
-
-                for digit in "0123456789":
-                    token_ids = self.tokenizer.encode(digit)
-                    allowed.add(token_ids[0])
-
-                return allowed
+                return self.get_character_tokens("0123456789")
 
             if state == JSONState.EXPECT_ZERO_END:
-                allowed = set()
-
-                for char in [".", "e", "E"]:
-                    token_ids = self.tokenizer.encode(char)
-                    allowed.add(token_ids[0])
-
-                return allowed
+                return self.get_character_tokens(".eE")
 
             if state == JSONState.VALUE_NUMBER:
                 allowed = set()
 
-                for token_id in self.vocab_token_ids:
-                    token_text = self.get_token_text(token_id)
+                for token_id, token_text in self.vocab_tokens:
 
                     if not token_text or token_text == "}":
                         continue
@@ -353,19 +350,10 @@ class TokenConstraints:
                 return allowed
 
             if state == JSONState.EXPECT_EXPONENT:
-                allowed = set()
-
-                for char in "+-0123456789":
-                    token_ids = self.tokenizer.encode(char)
-                    allowed.add(token_ids[0])
-
-                return allowed
+                return self.get_character_tokens("+-0123456789")
 
             allowed = {12}
-
-            for digit in "0123456789":
-                token_ids = self.tokenizer.encode(digit)
-                allowed.add(token_ids[0])
+            allowed.update(self.get_character_tokens("0123456789"))
 
             return allowed
 
@@ -384,8 +372,7 @@ class TokenConstraints:
         if self.decoder.state == JSONState.VALUE_CONTENT:
             allowed: set[int] = set()
 
-            for token_id in self.vocab_token_ids:
-                token_text = self.get_token_text(token_id)
+            for token_id, token_text in self.vocab_tokens:
 
                 if not token_text.startswith('"'):
                     if self.decoder.is_token_valid(token_text):
@@ -408,3 +395,15 @@ class TokenConstraints:
             )
 
         return self.token_text_cache[token_id]
+
+    def get_missing_parameters(self) -> set[str]:
+        """Return the required parameters not yet generated."""
+        if self.current_function is None:
+            return set()
+
+        function = self.schema.get_function(self.current_function)
+
+        if function is None:
+            return set()
+
+        return set(function.parameters) - self.used_parameters
