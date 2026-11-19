@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/17 16:18:10 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/19 16:39:48 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -88,8 +88,12 @@ def generate_text(
         state = constraints.decoder.state
         allowed: set[int] = set()
 
+        # Génération du séparateur ":".
+        if state == JSONState.EXPECT_COLON:
+            allowed = _get_tokens_by_text(constraints, ":")
+
         # Début de la valeur de "name".
-        if (
+        elif (
             state == JSONState.EXPECT_VALUE_START
             and constraints.current_key == "name"
         ):
@@ -222,15 +226,6 @@ def generate_text(
         ):
             if constraints.current_function is not None:
                 missing_parameters = constraints.get_missing_parameters()
-                # allowed = {
-                #     token_id
-                #     for token_id in constraints.vocab_token_ids
-                #     if constraints.is_token_valid(token_id)
-                #     and not (
-                #         missing_parameters
-                #         and "}" in constraints.get_token_text(token_id)
-                #     )
-                # }
                 allowed = {
                     token_id
                     for token_id, token_text in constraints.vocab_tokens
@@ -249,6 +244,13 @@ def generate_text(
                 if constraints.is_token_valid(token_id)
             }
 
+        # Appliquer le mode JSON compact à toutes les branches.
+        allowed = {
+            token_id
+            for token_id in allowed
+            if constraints.is_compact_token_valid(token_id)
+        }
+
         constraints_time += time.perf_counter() - start
 
         # Ne conserver que les identifiants présents dans les logits.
@@ -265,29 +267,6 @@ def generate_text(
             )
             break
 
-        # Diagnostic ciblé : valeur du champ regex uniquement.
-        if (
-            constraints.decoder.state == JSONState.VALUE_CONTENT
-            and constraints.current_key == "regex"
-        ):
-            best_ids = sorted(
-                allowed,
-                key=lambda token_id: logits[token_id],
-                reverse=True,
-            )[:5]
-            print("DEBUG regex :")
-            print(
-                "  meilleurs tokens après contraintes :",
-                [
-                    (
-                        token_id,
-                        repr(constraints.get_token_text(token_id)),
-                        float(logits[token_id]),
-                    )
-                    for token_id in best_ids
-                ],
-            )
-
         next_id = max(allowed, key=lambda token_id: logits[token_id])
 
         generated.append(next_id)
@@ -296,15 +275,6 @@ def generate_text(
 
         # Consommer chaque token une seule fois.
         constraints.process_token(next_id, generated)
-        if constraints.current_key == "regex":
-            print(
-                "DEBUG regex length:",
-                constraints.get_regex_character_count(),
-                "value:",
-                repr(constraints.context.current_value),
-                "state:",
-                constraints.decoder.state,
-            )
 
         if constraints.decoder.state == JSONState.DONE:
             break
@@ -333,9 +303,6 @@ def main() -> None:
     model = Small_LLM_Model()
     constraints = TokenConstraints(model, schema)
 
-    allowed = constraints.get_allowed_first_function_tokens()
-    print("Tokens autorisés pour commencer un nom :", allowed)
-
     results: list[FunctionCallResult] = []
     functions_description = schema.get_functions_description()
 
@@ -346,7 +313,8 @@ def main() -> None:
     # prompts = prompts[8:]
     # prompts = prompts[2:6]
     # prompts = prompts[5:8]
-    prompts = prompts[:4]
+    # prompts = prompts[:4]
+    prompts = prompts[13:14]
     print(f"Nombre de prompts à tester : {len(prompts)}")
 
     base_instruction = (
@@ -399,7 +367,7 @@ def main() -> None:
         print(f"\nPrompt testé : {prompt}")
 
         result = generate_text(model, instruction, constraints)
-        print("DEBUG résultat brut :", repr(result))
+        # print("DEBUG résultat brut :", repr(result))
 
         elapsed = time.perf_counter() - start
 
@@ -430,7 +398,7 @@ def main() -> None:
         results.append(function_result)
 
         print(f"Temps de génération : {elapsed:.2f} secondes")
-        print("Prompt:", prompt)
+        # print("Prompt:", prompt)
         print("Generated:", function_result.model_dump())
 
     output_path = Path(args.output)

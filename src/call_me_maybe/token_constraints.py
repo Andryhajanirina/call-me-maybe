@@ -216,7 +216,7 @@ class TokenConstraints:
                         self.current_parameter = self.current_key
                         self.used_parameters.add(self.current_key)
 
-                    print("Completed key:", self.current_key)
+                    # print("Completed key:", self.current_key)
                 else:
                     self.context.add_key_character(char)
 
@@ -363,6 +363,42 @@ class TokenConstraints:
         """Check whether a token preserves JSON syntax."""
         token_text = self.get_token_text(token_id)
         return self.decoder.is_token_valid(token_text)
+
+    def is_compact_token_valid(self, token_id: int) -> bool:
+        """Check whether a token is valid in compact JSON mode."""
+        token_text = self.get_token_text(token_id)
+
+        original_state = self.decoder.state
+        original_stack = self.decoder.object_stack.copy()
+        original_escape_next = self.decoder.escape_next
+        original_unicode_escape_remaining = (
+            self.decoder.unicode_escape_remaining
+        )
+
+        try:
+            for char in token_text:
+                # Refuser les espaces en dehors des chaînes JSON.
+                if (
+                    self.decoder.is_whitespace(char)
+                    and self.decoder.state not in (
+                        JSONState.KEY_CONTENT,
+                        JSONState.VALUE_CONTENT,
+                    )
+                ):
+                    return False
+
+                if not self.decoder.consume_char(char):
+                    return False
+
+            return True
+
+        finally:
+            self.decoder.state = original_state
+            self.decoder.object_stack = original_stack
+            self.decoder.escape_next = original_escape_next
+            self.decoder.unicode_escape_remaining = (
+                original_unicode_escape_remaining
+            )
 
     def get_allowed_string_tokens(self) -> set[int]:
         """Return tokens compatible with a string parameter."""

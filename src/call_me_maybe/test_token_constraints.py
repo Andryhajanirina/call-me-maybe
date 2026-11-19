@@ -1015,6 +1015,62 @@ def test_integer_parameter_types(
                 assert token_id in allowed
 
 
+def test_compact_mode_rejects_structural_whitespace(
+    constraints: TokenConstraints,
+) -> None:
+    """Reject whitespace outside JSON strings."""
+    decoder = constraints.decoder
+
+    decoder.state = JSONState.EXPECT_VALUE_START
+    decoder.object_stack = ["object"]
+
+    assert not constraints.is_compact_token_valid(
+        constraints.tokenizer.encode(" ")[0]
+    )
+
+    assert constraints.is_token_valid(
+        constraints.tokenizer.encode(" ")[0]
+    )
+
+
+def test_compact_mode_allows_string_whitespace(
+    constraints: TokenConstraints,
+) -> None:
+    """Allow whitespace inside JSON strings."""
+    decoder = constraints.decoder
+
+    decoder.state = JSONState.VALUE_CONTENT
+    decoder.object_stack = ["object"]
+
+    # Le texte peut être réparti sur plusieurs tokens BPE.
+    token_ids = constraints.tokenizer.encode("Hello world")
+
+    for token_id in token_ids:
+        assert constraints.is_compact_token_valid(token_id)
+        assert decoder.state == JSONState.VALUE_CONTENT
+
+
+def test_compact_mode_rejects_whitespace_after_string(
+    constraints: TokenConstraints,
+) -> None:
+    """Reject whitespace immediately after a closing quote."""
+    decoder = constraints.decoder
+
+    decoder.state = JSONState.VALUE_CONTENT
+    decoder.object_stack = ["object"]
+
+    # Simuler la consommation du contenu et de la fermeture
+    # de la chaîne par les tokens précédents.
+    assert decoder.consume_text('hello"')
+    assert decoder.state == JSONState.EXPECT_COMMA
+
+    whitespace_token = constraints.tokenizer.encode(" ")[0]
+
+    assert not constraints.is_compact_token_valid(
+        whitespace_token
+    )
+
+
 def main() -> None:
     """Run token constraint tests."""
     model = Small_LLM_Model()
@@ -1079,6 +1135,7 @@ def main() -> None:
     test_allowed_tokens_for_string_parameter(constraints)
     test_allowed_tokens_for_number_parameter(constraints)
     test_exponent_number_allows_valid_terminators(constraints)
+    # test_compact_json_rejects_structural_whitespace(constraints)
 
     print("\nTous les tests sont terminés.")
 
