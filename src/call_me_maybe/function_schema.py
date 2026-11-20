@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:41:52 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/16 11:15:57 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/20 14:12:14 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 from decimal import Decimal, ROUND_HALF_UP
 
-from .models import FunctionDefinition
+from .models import FunctionDefinition, ParameterType
 
 
 class FunctionSchema:
@@ -30,6 +30,20 @@ class FunctionSchema:
                     FunctionDefinition.model_validate(item)
                     for item in raw_data
                 ]
+                self.functions_by_name = {
+                    function.name: function
+                    for function in self.functions
+                }
+
+                self.function_names = list(self.functions_by_name)
+
+                self.parameters_by_function = {
+                    function.name: [
+                        (name, parameter.type)
+                        for name, parameter in function.parameters.items()
+                    ]
+                    for function in self.functions
+                }
         except FileNotFoundError as e:
             raise ValueError(
                 f"Function definition file not found: {self.path}"
@@ -39,12 +53,14 @@ class FunctionSchema:
                 f"Invalid JSON in function definition file: {self.path}"
             ) from e
 
-    def get_function(self, name: str) -> FunctionDefinition | None:
-        for function in self.functions:
-            if function.name == name:
-                return function
+    # def get_function(self, name: str) -> FunctionDefinition | None:
+    #     for function in self.functions:
+    #         if function.name == name:
+    #             return function
 
-        return None
+    #     return None
+    def get_function(self, name: str) -> FunctionDefinition | None:
+        return self.functions_by_name.get(name)
 
     def normalize_parameters(
         self,
@@ -150,8 +166,10 @@ class FunctionSchema:
 
         return normalized
 
+    # def get_function_names(self) -> list[str]:
+    #     return [function.name for function in self.functions]
     def get_function_names(self) -> list[str]:
-        return [function.name for function in self.functions]
+        return self.function_names.copy()
 
     def get_functions_description(self) -> str:
         """Build a description of all available functions."""
@@ -169,3 +187,17 @@ class FunctionSchema:
             )
 
         return "\n".join(descriptions)
+
+    def get_function_parameters(
+        self,
+        function_name: str,
+    ) -> list[tuple[str, ParameterType]]:
+        """Return parameter names and types in schema order."""
+        parameters = self.parameters_by_function.get(function_name)
+
+        if parameters is None:
+            raise ValueError(
+                f"Unknown function: {function_name}"
+            )
+
+        return parameters.copy()

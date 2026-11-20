@@ -172,3 +172,26 @@ def test_missing_parameter_is_rejected(
             "fn_test",
             {"number_value": 2},
         )
+
+
+def test_get_function_parameters_preserves_schema_order(
+    schema: FunctionSchema,
+) -> None:
+    result = schema.get_function_parameters("fn_test")
+
+    assert result == [
+        ("number_value", "number"),
+        ("int_value", "int"),
+        ("integer_value", "integer"),
+        ("string_value", "string"),
+        ("boolean_value", "boolean"),
+        ("array_value", "array"),
+        ("object_value", "object"),
+    ]
+
+
+def test_get_function_parameters_rejects_unknown_function(
+    schema: FunctionSchema,
+) -> None:
+    with pytest.raises(ValueError, match="Unknown function"):
+        schema.get_function_parameters("unknown")

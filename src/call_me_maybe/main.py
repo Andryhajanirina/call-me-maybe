@@ -7,12 +7,13 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/19 16:39:48 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/20 16:23:23 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
 import json
 import time
+import copy
 from pathlib import Path
 
 from llm_sdk import Small_LLM_Model
@@ -20,7 +21,12 @@ from pydantic import ValidationError
 
 from .function_schema import FunctionSchema
 from .json_state import JSONState
-from .models import FunctionCallResult, TestInput
+# from .models import FunctionCallResult, FunctionCallTest,
+from .models import (
+    FunctionCallResult,
+    TestInput,
+    ParameterType,
+)
 from .parsing import parse_args
 from .token_constraints import TokenConstraints
 
@@ -61,6 +67,460 @@ def _get_tokens_by_text(
         target_text,
         strip=strip,
     )
+
+
+def identify_function(
+    model: Small_LLM_Model,
+    prompt: str,
+    constraints: TokenConstraints,
+    functions_description: str,
+    max_new_tokens: int = 30,
+) -> str:
+    """Identify a function using constrained token generation."""
+
+    encoded_names = constraints.encoded_function_names
+
+    if not encoded_names:
+        raise ValueError("No function is available.")
+
+    # Vérifier qu'aucun nom complet n'est le préfixe d'un autre.
+    for name, token_ids in encoded_names.items():
+        for other_name, other_ids in encoded_names.items():
+            if (
+                name != other_name
+                and len(other_ids) > len(token_ids)
+                and other_ids[:len(token_ids)] == token_ids
+            ):
+                raise ValueError(
+                    f"Ambiguous function names: {name} and {other_name}"
+                )
+
+    instruction = (
+        "You are a function-calling assistant. "
+        "Identify the function that best matches the user's request. "
+        "Return ONLY the exact function name. "
+        "Do not return arguments, explanations or punctuation.\n\n"
+        f"Available functions:\n{functions_description}\n\n"
+        f"User request: {prompt}\n"
+        "Function name:"
+    )
+
+    input_ids = constraints.tokenizer.encode(instruction)
+    generated_tokens: list[int] = []
+
+    for _ in range(max_new_tokens):
+        logits = model.get_logits_from_input_ids(input_ids)
+
+        if not generated_tokens:
+            allowed = constraints.get_allowed_first_function_tokens()
+        else:
+            allowed = constraints.get_allowed_next_tokens(
+                generated_tokens
+            )
+
+        allowed = {
+            token_id
+            for token_id in allowed
+            if 0 <= token_id < len(logits)
+        }
+
+        if not allowed:
+            raise ValueError(
+                "No valid token available for function identification."
+            )
+
+        next_id = max(
+            allowed,
+            key=lambda token_id: logits[token_id],
+        )
+
+        generated_tokens.append(next_id)
+        input_ids.append(next_id)
+
+        if constraints.is_complete_function_name(generated_tokens):
+            function_name = constraints.get_function_name_from_tokens(
+                generated_tokens
+            )
+
+            if function_name is None:
+                raise ValueError("Unable to retrieve the function name.")
+
+            return function_name
+
+    raise ValueError(
+        "Function identification incomplete: "
+        f"{len(generated_tokens)}/{max_new_tokens} tokens generated."
+    )
+
+
+def identify_function_and_parameters(
+    model: Small_LLM_Model,
+    prompt: str,
+    constraints: TokenConstraints,
+    functions_description: str,
+    schema: FunctionSchema,
+) -> tuple[str, list[tuple[str, ParameterType]]]:
+    """Identify the function and retrieve its parameters."""
+
+    function_name = identify_function(
+        model,
+        prompt,
+        constraints,
+        functions_description,
+    )
+
+    parameters = schema.get_function_parameters(function_name)
+
+    return function_name, parameters
+
+
+def prepare_parameter_context(
+    constraints: TokenConstraints,
+    function_name: str,
+    parameter_name: str,
+) -> None:
+    """Prepare the JSON decoder for generating one parameter value."""
+
+    constraints.reset()
+
+    prefix = f'{{"parameters":{{"{parameter_name}":'
+
+    prefix_tokens = constraints.tokenizer.encode(prefix)
+    generated_tokens: list[int] = []
+
+    for token_id in prefix_tokens:
+        generated_tokens.append(token_id)
+        constraints.process_token(token_id, generated_tokens)
+
+    constraints.current_function = function_name
+
+    if constraints.current_parameter != parameter_name:
+        raise ValueError(
+            f"Unable to prepare parameter: {parameter_name}"
+        )
+
+    if constraints.decoder.state != JSONState.EXPECT_VALUE_START:
+        raise ValueError(
+            "Unexpected decoder state: "
+            f"{constraints.decoder.state}"
+        )
+
+
+def generate_number_parameter(
+    model: Small_LLM_Model,
+    prompt: str,
+    function_name: str,
+    parameter_name: str,
+    constraints: TokenConstraints,
+    max_new_tokens: int = 30,
+) -> str:
+    """Generate one numeric parameter value."""
+
+    prepare_parameter_context(
+        constraints,
+        function_name,
+        parameter_name,
+    )
+
+    prefix = f'{{"parameters":{{"{parameter_name}":'
+
+    instruction = (
+        "You are a function-calling assistant. "
+        "Extract the exact numeric value requested by the user. "
+        "Preserve the sign of negative numbers. "
+        "Do not change the numeric value. "
+        "Do not calculate or transform it. "
+        "Generate only the JSON numeric value.\n\n"
+        f"User request: {prompt}\n"
+        f"Function: {function_name}\n"
+        f"Parameter: {parameter_name}\n"
+        "Parameter type: number\n"
+        f"JSON: {prefix}"
+    )
+
+    input_ids = constraints.tokenizer.encode(instruction)
+    generated_tokens: list[int] = []
+
+    for _ in range(max_new_tokens):
+        logits = model.get_logits_from_input_ids(input_ids)
+
+        allowed = constraints.get_allowed_value_tokens()
+
+        print(
+            f"[DEBUG] État JSON : {constraints.decoder.state}"
+        )
+        print(
+            f"[DEBUG] Type paramètre : "
+            f"{constraints.get_current_parameter_type()}"
+        )
+        print(
+            f"[DEBUG] Tokens autorisés avant filtrage : {len(allowed)}"
+        )
+        # Ne pas autoriser un token qui dépasse le séparateur.
+        # La virgule doit être générée comme un token indépendant.
+        if constraints.decoder.state == JSONState.VALUE_NUMBER:
+            allowed = {
+                token_id
+                for token_id in allowed
+                if constraints.get_token_text(token_id) == ","
+                or (
+                    "," not in constraints.get_token_text(token_id)
+                    and "}" not in constraints.get_token_text(token_id)
+                )
+            }
+
+        allowed = {
+            token_id
+            for token_id in allowed
+            if (
+                0 <= token_id < len(logits)
+                and constraints.is_compact_token_valid(token_id)
+            )
+        }
+
+        print(
+            f"[DEBUG] Tokens autorisés après filtrage : {len(allowed)}"
+        )
+        print(
+            f"[DEBUG] Taille logits : {len(logits)}"
+        )
+
+        # if not allowed:
+        #     raise ValueError(
+        #         "No valid token available for numeric parameter "
+        #         f"{parameter_name!r}."
+        #     )
+        if not allowed:
+            print("[DEBUG] Aucun token autorisé.")
+            print(
+                f"[DEBUG] État final : {constraints.decoder.state}"
+            )
+            print(
+                f"[DEBUG] Fonction : {constraints.current_function}"
+            )
+            print(
+                f"[DEBUG] Paramètre : {constraints.current_parameter}"
+            )
+            raise ValueError(
+                "No valid token available for numeric parameter "
+                f"{parameter_name!r}."
+            )
+
+        next_id = max(
+            allowed,
+            key=lambda token_id: logits[token_id],
+        )
+
+        generated_tokens.append(next_id)
+        input_ids.append(next_id)
+
+        # constraints.process_token(next_id, generated_tokens)
+        token_text = constraints.get_token_text(next_id)
+
+        print(
+            f"[DEBUG] Token généré : {token_text!r}"
+        )
+
+        previous_state = constraints.decoder.state
+
+        constraints.process_token(next_id, generated_tokens)
+
+        print(
+            f"[DEBUG] Transition : "
+            f"{previous_state} -> {constraints.decoder.state}"
+        )
+
+        if constraints.decoder.state == JSONState.EXPECT_KEY_START:
+            break
+
+    if constraints.decoder.state != JSONState.EXPECT_KEY_START:
+        raise ValueError(
+            "Numeric parameter generation incomplete: "
+            f"final state = {constraints.decoder.state}"
+        )
+
+    generated_text = constraints.tokenizer.decode(generated_tokens)
+
+    if not generated_text.endswith(","):
+        raise ValueError(
+            f"Expected a comma delimiter, got: {generated_text!r}"
+        )
+
+    value = generated_text[:-1].strip()
+
+    try:
+        parsed_value = json.loads(value)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Invalid numeric parameter: {value!r}"
+        ) from e
+
+    if isinstance(parsed_value, bool) or not isinstance(
+        parsed_value,
+        (int, float),
+    ):
+        raise ValueError(f"Expected a number, got: {value!r}")
+
+    return value
+
+
+def generate_string_parameter(
+    model: Small_LLM_Model,
+    prompt: str,
+    function_name: str,
+    parameter_name: str,
+    constraints: TokenConstraints,
+    max_new_tokens: int = 60,
+) -> str:
+    """Generate one string parameter value."""
+
+    prepare_parameter_context(
+        constraints,
+        function_name,
+        parameter_name,
+    )
+
+    prefix = f'{{"parameters":{{"{parameter_name}":'
+
+    instruction = (
+        "You are a function-calling assistant. "
+        "Extract the exact text requested by the user. "
+        "Preserve the original words, capitalization and punctuation. "
+        "Remove quotation marks used only to delimit the text. "
+        "Do not add explanations or additional text. "
+        "Generate only the JSON string value.\n\n"
+        f"User request: {prompt}\n"
+        f"Function: {function_name}\n"
+        f"Parameter: {parameter_name}\n"
+        "Parameter type: string\n"
+        f"JSON: {prefix}"
+    )
+
+    input_ids = constraints.tokenizer.encode(instruction)
+    generated_tokens: list[int] = []
+
+    for _ in range(max_new_tokens):
+        logits = model.get_logits_from_input_ids(input_ids)
+        state = constraints.decoder.state
+
+        if state in (
+            JSONState.EXPECT_VALUE_START,
+            JSONState.VALUE_CONTENT,
+        ):
+            candidates = constraints.get_allowed_string_tokens()
+
+            print(f"[DEBUG] État : {state}")
+            print(f"[DEBUG] Candidats initiaux : {len(candidates)}")
+
+            if state == JSONState.EXPECT_VALUE_START:
+                print(
+                    "[DEBUG] Exemples :",
+                    [
+                        constraints.get_token_text(token_id)
+                        for token_id in list(candidates)[:10]
+                    ],
+                )
+
+        elif state == JSONState.EXPECT_COMMA:
+            candidates = {
+                token_id
+                for token_id in constraints.vocab_token_ids
+                if constraints.get_token_text(token_id) == ","
+            }
+
+        else:
+            raise ValueError(
+                f"Unexpected JSON state for string: {state}"
+            )
+
+        allowed: set[int] = set()
+
+        for token_id in candidates:
+            if not 0 <= token_id < len(logits):
+                continue
+
+            token_text = constraints.get_token_text(token_id)
+
+            if not token_text:
+                continue
+
+            decoder_copy = copy.deepcopy(constraints.decoder)
+
+            if not decoder_copy.consume_text(token_text):
+                continue
+
+            # La virgule termine la valeur et fait passer
+            # le décodeur à EXPECT_KEY_START.
+            if state == JSONState.EXPECT_COMMA:
+                if (
+                    token_text == ","
+                    and decoder_copy.state == JSONState.EXPECT_KEY_START
+                ):
+                    allowed.add(token_id)
+
+                continue
+
+            # Pendant la génération de la chaîne,
+            # on accepte son contenu ou sa fermeture.
+            if decoder_copy.state not in (
+                JSONState.VALUE_CONTENT,
+                JSONState.EXPECT_COMMA,
+            ):
+                continue
+
+            allowed.add(token_id)
+        print(f"[DEBUG] Candidats valides : {len(allowed)}")
+
+        if not allowed:
+            raise ValueError(
+                "No valid token available for string parameter "
+                f"{parameter_name!r}."
+            )
+
+        next_id = max(
+            allowed,
+            key=lambda token_id: logits[token_id],
+        )
+
+        generated_tokens.append(next_id)
+        input_ids.append(next_id)
+
+        constraints.process_token(
+            next_id,
+            generated_tokens,
+        )
+
+        if constraints.decoder.state == JSONState.EXPECT_KEY_START:
+            break
+
+    if constraints.decoder.state != JSONState.EXPECT_KEY_START:
+        raise ValueError(
+            "String parameter generation incomplete: "
+            f"final state = {constraints.decoder.state}"
+        )
+
+    generated_text = constraints.tokenizer.decode(generated_tokens)
+
+    if not generated_text.endswith(","):
+        raise ValueError(
+            f"Expected a comma delimiter, got: {generated_text!r}"
+        )
+
+    value_text = generated_text[:-1]
+
+    try:
+        value = json.loads(value_text)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Invalid string parameter: {value_text!r}"
+        ) from e
+
+    if not isinstance(value, str):
+        raise ValueError(
+            f"Expected a string, got: {value!r}"
+        )
+
+    return value
 
 
 def generate_text(
@@ -306,6 +766,73 @@ def main() -> None:
     results: list[FunctionCallResult] = []
     functions_description = schema.get_functions_description()
 
+    # TEST
+    # test_prompts = [
+    #     "Add 125 and 250",
+    #     "Multiply 12 by 8",
+    #     "Say hello to Andry",
+    #     "Reverse the string hello world",
+    #     "Calculate the square root of 144",
+    #     "Replace all vowels in Programming with asterisks",
+    # ]
+    test_prompts = [
+        "Say hello to Andry",
+        "Reverse the string hello world",
+        "Say hello to John Smith",
+    ]
+
+    for test_prompt in test_prompts:
+        function_name, parameters = identify_function_and_parameters(
+            model,
+            test_prompt,
+            constraints,
+            functions_description,
+            schema,
+        )
+
+        # prepare_parameter_context(
+        #     constraints,
+        #     function_name,
+        #     parameters[0][0],
+        # )
+
+        # print("Fonction :", constraints.current_function)
+        # print("Paramètre :", constraints.current_parameter)
+        # print("Type :", constraints.get_current_parameter_type())
+        # print("État :", constraints.decoder.state)
+
+        # print()
+        parameter_name, parameter_type = parameters[0]
+
+        print("Prompt :", test_prompt)
+        print("Fonction :", function_name)
+        print("Paramètre :", parameter_name)
+        print("Type :", parameter_type)
+
+        # if parameter_type == "number":
+        #     value = generate_number_parameter(
+        #         model,
+        #         test_prompt,
+        #         function_name,
+        #         parameter_name,
+        #         constraints,
+        #     )
+
+        #     print("Valeur générée :", value)
+        if parameter_type == "string":
+            value = generate_string_parameter(
+                model,
+                test_prompt,
+                function_name,
+                parameter_name,
+                constraints,
+            )
+
+            print(f"Valeur générée : {value}")
+
+    return
+
+    # FIN TEST
     # prompts = prompts[-3:]
     # prompts = prompts[-2:-1]
     # prompts = prompts[8:10]
