@@ -7,14 +7,16 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/22 11:02:52 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/22 14:01:42 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
 import json
 import time
 import copy
+import re
 from pathlib import Path
+from typing import Any
 
 from llm_sdk import Small_LLM_Model
 from pydantic import ValidationError
@@ -108,8 +110,27 @@ def identify_function(
     input_ids = constraints.tokenizer.encode(instruction)
     generated_tokens: list[int] = []
 
+    # Mesures de performance
+    model_time = 0.0
+    constraints_time = 0.0
+    tokens_generated = 0
+
     for _ in range(max_new_tokens):
+
+        # Mesurer le temps d'inférence du modèle.
+        start = time.perf_counter()
         logits = model.get_logits_from_input_ids(input_ids)
+        inference_time = time.perf_counter() - start
+        model_time += time.perf_counter() - start
+
+        print(
+            f"[DEBUG] Inférence token {len(generated_tokens) + 1} : "
+            f"{inference_time:.4f} s "
+            f"(entrée : {len(input_ids)} tokens)"
+        )
+
+        # Mesurer le temps de calcul des contraintes.
+        start = time.perf_counter()
 
         if not generated_tokens:
             allowed = constraints.get_allowed_first_function_tokens()
@@ -124,6 +145,8 @@ def identify_function(
             if 0 <= token_id < len(logits)
         }
 
+        constraints_time += time.perf_counter() - start
+
         if not allowed:
             raise ValueError(
                 "No valid token available for function identification."
@@ -136,6 +159,7 @@ def identify_function(
 
         generated_tokens.append(next_id)
         input_ids.append(next_id)
+        tokens_generated += 1
 
         if constraints.is_complete_function_name(generated_tokens):
             function_name = constraints.get_function_name_from_tokens(
@@ -144,6 +168,15 @@ def identify_function(
 
             if function_name is None:
                 raise ValueError("Unable to retrieve the function name.")
+
+            print(f"\nFonction identifiée : {function_name}")
+            print(f"Tokens générés : {tokens_generated}")
+            print(f"Temps du modèle : {model_time:.4f} s")
+            print(f"Temps des contraintes : {constraints_time:.4f} s")
+            print(
+                f"Temps total mesuré : "
+                f"{model_time + constraints_time:.4f} s"
+            )
 
             return function_name
 
@@ -206,6 +239,16 @@ def prepare_parameter_context(
         )
 
 
+NUMBER_PATTERN = re.compile(
+    r"(?<![\w.])[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?(?![\w.])"
+)
+
+
+def extract_numeric_values(prompt: str) -> list[str]:
+    """Extract numeric values from a user request, in order."""
+    return NUMBER_PATTERN.findall(prompt)
+
+
 def generate_number_parameter(
     model: Small_LLM_Model,
     prompt: str,
@@ -213,6 +256,8 @@ def generate_number_parameter(
     parameter_name: str,
     constraints: TokenConstraints,
     max_new_tokens: int = 30,
+    parameter_index: int = 0,
+    parameter_count: int = 1,
 ) -> str:
     """Generate one numeric parameter value."""
 
@@ -224,18 +269,63 @@ def generate_number_parameter(
 
     prefix = f'{{"parameters":{{"{parameter_name}":'
 
+    # instruction = (
+    #     "You are a function-calling assistant. "
+    #     "Extract the exact numeric value requested by the user. "
+    #     "Preserve the sign of negative numbers. "
+    #     "Do not change the numeric value. "
+    #     "Do not calculate or transform it. "
+    #     "Generate only the JSON numeric value.\n\n"
+
+    #     "Important extraction rules:\n"
+    #     f"- You are extracting numeric argument "
+    #     f"{parameter_index + 1} out of {parameter_count}.\n"
+    #     "- Extract the corresponding number from the user request "
+    #     "according to its position among the numeric arguments.\n"
+    #     "- Never reuse a number extracted for another parameter.\n\n"
+
+    #     f"User request: {prompt}\n"
+    #     f"Function: {function_name}\n"
+    #     f"Parameter: {parameter_name}\n"
+    #     "Parameter type: number\n"
+    #     f"JSON: {prefix}"
+    # )
     instruction = (
-        "You are a function-calling assistant. "
-        "Extract the exact numeric value requested by the user. "
-        "Preserve the sign of negative numbers. "
-        "Do not change the numeric value. "
-        "Do not calculate or transform it. "
-        "Generate only the JSON numeric value.\n\n"
+        "Extract one numeric argument from the user's request.\n"
+        "The request may contain several numbers.\n"
+        "Read all numeric values from left to right.\n"
+        "Select the value at the requested position.\n"
+        "Positions start at 1.\n\n"
+
+        "Examples:\n"
+        "Request: Add 125 and 250\n"
+        "Argument 1: 125\n"
+        "Argument 2: 250\n\n"
+
+        "Request: Multiply 12 by 8\n"
+        "Argument 1: 12\n"
+        "Argument 2: 8\n\n"
+
+        "Request: Add -15 and 20\n"
+        "Argument 1: -15\n"
+        "Argument 2: 20\n\n"
+
         f"User request: {prompt}\n"
         f"Function: {function_name}\n"
         f"Parameter: {parameter_name}\n"
-        "Parameter type: number\n"
+        f"Argument position: {parameter_index + 1}\n"
+        f"Total numeric arguments: {parameter_count}\n"
+        "Return only the selected numeric value.\n"
         f"JSON: {prefix}"
+    )
+
+    print("\n========== DEBUG INSTRUCTION ==========")
+    print(instruction)
+    print("=======================================\n")
+
+    print(
+        f"[DEBUG] parameter_index={parameter_index}, "
+        f"parameter_count={parameter_count}"
     )
 
     input_ids = constraints.tokenizer.encode(instruction)
@@ -285,11 +375,6 @@ def generate_number_parameter(
             f"[DEBUG] Taille logits : {len(logits)}"
         )
 
-        # if not allowed:
-        #     raise ValueError(
-        #         "No valid token available for numeric parameter "
-        #         f"{parameter_name!r}."
-        #     )
         if not allowed:
             print("[DEBUG] Aucun token autorisé.")
             print(
@@ -314,7 +399,6 @@ def generate_number_parameter(
         generated_tokens.append(next_id)
         input_ids.append(next_id)
 
-        # constraints.process_token(next_id, generated_tokens)
         token_text = constraints.get_token_text(next_id)
 
         print(
@@ -553,6 +637,65 @@ def generate_string_parameter(
         )
 
     return value
+
+
+def generate_parameters(
+    model: Small_LLM_Model,
+    prompt: str,
+    function_name: str,
+    parameters: list[tuple[str, ParameterType]],
+    constraints: TokenConstraints,
+) -> dict[str, Any]:
+    """Generate all parameters for a function."""
+
+    generated_parameters: dict[str, Any] = {}
+
+    numeric_parameter_count = sum(
+        1
+        for _, parameter_type in parameters
+        if parameter_type in ("number", "int", "integer")
+    )
+
+    numeric_parameter_index = 0
+
+    for parameter_name, parameter_type in parameters:
+        print(f"\nParamètre : {parameter_name}")
+        print(f"Type : {parameter_type}")
+
+        if parameter_type == "string":
+            value = generate_string_parameter(
+                model,
+                prompt,
+                function_name,
+                parameter_name,
+                constraints,
+            )
+
+        elif parameter_type in ("number", "int", "integer"):
+            numeric_values = extract_numeric_values(prompt)
+
+            if len(numeric_values) != numeric_parameter_count:
+                raise ValueError(
+                    f"Expected {numeric_parameter_count} numeric arguments, "
+                    f"but found {len(numeric_values)} in prompt: {prompt!r}"
+                )
+
+            value = json.loads(
+                numeric_values[numeric_parameter_index]
+            )
+
+            numeric_parameter_index += 1
+
+        else:
+            raise ValueError(
+                f"Unsupported parameter type: {parameter_type}"
+            )
+
+        generated_parameters[parameter_name] = value
+
+        print(f"Valeur générée : {value!r}")
+
+    return generated_parameters
 
 
 def generate_text(
@@ -799,21 +942,26 @@ def main() -> None:
     functions_description = schema.get_functions_description()
 
     # TEST
+    test_prompts = [
+        "Add 125 and 250",
+        "Add -15 and 20",
+        "Multiply 12.5 by 7.5",
+        "Add 0 and 5",
+        # "Say hello to Andry",
+        # "Reverse the string hello world",
+        "Calculate the square root of 144",
+        # "Replace all vowels in Programming with asterisks",
+    ]
     # test_prompts = [
-    #     "Add 125 and 250",
-    #     "Multiply 12 by 8",
     #     "Say hello to Andry",
     #     "Reverse the string hello world",
-    #     "Calculate the square root of 144",
-    #     "Replace all vowels in Programming with asterisks",
+    #     "Say hello to John Smith",
     # ]
-    test_prompts = [
-        "Say hello to Andry",
-        "Reverse the string hello world",
-        "Say hello to John Smith",
-    ]
 
     for test_prompt in test_prompts:
+        print(f"\nPrompt testé : {test_prompt}")
+
+        start = time.perf_counter()
         function_name, parameters = identify_function_and_parameters(
             model,
             test_prompt,
@@ -821,46 +969,30 @@ def main() -> None:
             functions_description,
             schema,
         )
+        identification_time = time.perf_counter() - start
 
-        # prepare_parameter_context(
-        #     constraints,
-        #     function_name,
-        #     parameters[0][0],
-        # )
+        start = time.perf_counter()
 
-        # print("Fonction :", constraints.current_function)
-        # print("Paramètre :", constraints.current_parameter)
-        # print("Type :", constraints.get_current_parameter_type())
-        # print("État :", constraints.decoder.state)
+        generated_parameters = generate_parameters(
+            model,
+            test_prompt,
+            function_name,
+            parameters,
+            constraints,
+        )
 
-        # print()
-        parameter_name, parameter_type = parameters[0]
+        generation_time = time.perf_counter() - start
 
-        print("Prompt :", test_prompt)
-        print("Fonction :", function_name)
-        print("Paramètre :", parameter_name)
-        print("Type :", parameter_type)
+        print(f"Temps identification : {identification_time:.2f} s")
+        print(f"Temps génération : {generation_time:.2f} s")
 
-        # if parameter_type == "number":
-        #     value = generate_number_parameter(
-        #         model,
-        #         test_prompt,
-        #         function_name,
-        #         parameter_name,
-        #         constraints,
-        #     )
+        generated_parameters = schema.normalize_parameters(
+            function_name,
+            generated_parameters,
+        )
 
-        #     print("Valeur générée :", value)
-        if parameter_type == "string":
-            value = generate_string_parameter(
-                model,
-                test_prompt,
-                function_name,
-                parameter_name,
-                constraints,
-            )
-
-            print(f"Valeur générée : {value}")
+        print("\nParamètres générés :")
+        print(json.dumps(generated_parameters, indent=4, ensure_ascii=False))
 
     return
 
