@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/20 16:23:23 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/22 11:02:52 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -382,17 +382,42 @@ def generate_string_parameter(
 
     prefix = f'{{"parameters":{{"{parameter_name}":'
 
+    # instruction = (
+    #     "You are a function-calling assistant. "
+    #     "Extract the exact text requested by the user. "
+    #     "Preserve the original words, capitalization and punctuation. "
+    #     "Remove quotation marks used only to delimit the text. "
+    #     "Do not add explanations or additional text. "
+    #     "Generate only the JSON string value.\n\n"
+    #     f"User request: {prompt}\n"
+    #     f"Function: {function_name}\n"
+    #     f"Parameter: {parameter_name}\n"
+    #     "Parameter type: string\n"
+    #     f"JSON: {prefix}"
+    # )
     instruction = (
-        "You are a function-calling assistant. "
-        "Extract the exact text requested by the user. "
-        "Preserve the original words, capitalization and punctuation. "
-        "Remove quotation marks used only to delimit the text. "
-        "Do not add explanations or additional text. "
-        "Generate only the JSON string value.\n\n"
-        f"User request: {prompt}\n"
-        f"Function: {function_name}\n"
+        "Extract a function parameter from a user request.\n"
+        "Return only the exact value requested by the user.\n"
+        "Do not explain your answer.\n"
+        "Do not repeat the request.\n"
+        "Do not include the function name or parameter name.\n\n"
+
+        "Examples:\n"
+        "Request: Say hello to Andry\n"
+        "Parameter: name\n"
+        'Value: "Andry"\n\n'
+
+        "Request: Reverse the string hello world\n"
+        "Parameter: s\n"
+        'Value: "hello world"\n\n'
+
+        "Request: Say hello to John Smith\n"
+        "Parameter: name\n"
+        'Value: "John Smith"\n\n'
+
+        f"Request: {prompt}\n"
         f"Parameter: {parameter_name}\n"
-        "Parameter type: string\n"
+        "Return only the parameter value as a JSON string.\n"
         f"JSON: {prefix}"
     )
 
@@ -403,23 +428,15 @@ def generate_string_parameter(
         logits = model.get_logits_from_input_ids(input_ids)
         state = constraints.decoder.state
 
-        if state in (
-            JSONState.EXPECT_VALUE_START,
-            JSONState.VALUE_CONTENT,
-        ):
+        if state == JSONState.EXPECT_VALUE_START:
+            candidates = {
+                token_id
+                for token_id in constraints.get_allowed_string_tokens()
+                if constraints.get_token_text(token_id) == '"'
+            }
+
+        elif state == JSONState.VALUE_CONTENT:
             candidates = constraints.get_allowed_string_tokens()
-
-            print(f"[DEBUG] État : {state}")
-            print(f"[DEBUG] Candidats initiaux : {len(candidates)}")
-
-            if state == JSONState.EXPECT_VALUE_START:
-                print(
-                    "[DEBUG] Exemples :",
-                    [
-                        constraints.get_token_text(token_id)
-                        for token_id in list(candidates)[:10]
-                    ],
-                )
 
         elif state == JSONState.EXPECT_COMMA:
             candidates = {
@@ -461,11 +478,21 @@ def generate_string_parameter(
                 continue
 
             # Pendant la génération de la chaîne,
-            # on accepte son contenu ou sa fermeture.
-            if decoder_copy.state not in (
-                JSONState.VALUE_CONTENT,
-                JSONState.EXPECT_COMMA,
-            ):
+            if decoder_copy.state == JSONState.EXPECT_COMMA:
+                # Ne pas autoriser la fermeture immédiate
+                # d'une chaîne vide.
+                if state == JSONState.EXPECT_VALUE_START:
+                    continue
+
+                # Autoriser uniquement la fermeture de la chaîne.
+                if '"' not in token_text:
+                    continue
+
+            elif decoder_copy.state == JSONState.VALUE_CONTENT:
+                # Autoriser le contenu de la chaîne.
+                pass
+
+            else:
                 continue
 
             allowed.add(token_id)
@@ -482,6 +509,11 @@ def generate_string_parameter(
             key=lambda token_id: logits[token_id],
         )
 
+        print(
+            f"[DEBUG CHOIX] "
+            f"token={constraints.get_token_text(next_id)!r}, "
+            f"état={state}"
+        )
         generated_tokens.append(next_id)
         input_ids.append(next_id)
 

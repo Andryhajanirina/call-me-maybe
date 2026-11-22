@@ -23,11 +23,11 @@ class TokenConstraints:
         self.schema = schema
         self.decoder = JSONDecoder()
         self.context = JSONContext()
-        self.current_function = None
+        self.current_function: str | None = None
         self.function_name_tokens: list[int] = []
         self.reading_function_name = False
         self.current_key = ""
-        self.current_parameter = None
+        self.current_parameter: str | None = None
         self.reading_parameters = False
         self.string_start_tokens: set[int] = set()
         self.tokenizer = Tokenizer(
