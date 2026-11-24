@@ -20,6 +20,13 @@ HF_HOME               = $(GOINFRE)/$(CACHE)/huggingface
 UV_CACHE_DIR          = $(GOINFRE_CACHE)
 UV_PYTHON_PREFERENCE  = managed
 
+# Charge le fichier .env s'il existe et exporte ses variables vers les commandes exécutées
+ifneq (,$(wildcard ./.env))
+    include .env
+    export
+endif
+
+export HF_TOKEN
 export HF_HOME
 export UV_CACHE_DIR
 export UV_PYTHON_PREFERENCE
@@ -131,7 +138,8 @@ remove:
 	@:
 
 run:
-	@$(UV) run $(MAIN_SCRIPT)
+	@$(UV) run --env-file .env $(MAIN_SCRIPT)
+# 	@$(UV) run $(MAIN_SCRIPT)
 # 	@$(UV) run python -m src \
 # 		--functions_definition $(FUNCTIONS) \
 # 		--input $(INPUT) \
@@ -145,7 +153,8 @@ debug:
 # 		--output $(OUTPUT)
 
 test:
-	@$(UV) run pytest src/call_me_maybe/test_json_context.py src/call_me_maybe/test_function_schema.py src/call_me_maybe/test_token_constraints.py
+	@$(UV) run pytest src/call_me_maybe/
+# 	@$(UV) run pytest src/call_me_maybe/test_json_context.py src/call_me_maybe/test_function_schema.py src/call_me_maybe/test_token_constraints.py
 # ==============================================================================
 # CLEAN - Complete clearing of caches and temporary files
 # ==============================================================================

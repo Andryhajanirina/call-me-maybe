@@ -221,6 +221,73 @@ def test_invalid_number_space_digit() -> None:
         )
 
 
+def test_escaped_quotes() -> None:
+    decoder = JSONDecoder()
+
+    tokens = [
+        "{",
+        '"name"',
+        ":",
+        '"John \\"The Boss\\" Smith"',
+        "}",
+    ]
+
+    for token in tokens:
+        assert decoder.consume_text(token) is True
+
+
+def test_escaped_backslashes() -> None:
+    decoder = JSONDecoder()
+
+    tokens = [
+        "{",
+        '"path"',
+        ":",
+        '"C:\\\\Users\\\\Andry\\\\Documents"',
+        "}",
+    ]
+
+    for token in tokens:
+        assert decoder.consume_text(token) is True
+
+
+def test_unicode_escape() -> None:
+    decoder = JSONDecoder()
+
+    tokens = [
+        "{",
+        '"name"',
+        ":",
+        '"Caf\\u00e9"',
+        "}",
+    ]
+
+    for token in tokens:
+        assert decoder.consume_text(token) is True
+
+
+def test_invalid_escape_character() -> None:
+    decoder = JSONDecoder()
+
+    assert decoder.consume_text('{"name":"John') is True
+    assert decoder.consume_text('\\q') is False
+
+
+def test_invalid_unicode_escape() -> None:
+    decoder = JSONDecoder()
+
+    assert decoder.consume_text('{"name":"Caf') is True
+    assert decoder.consume_text('\\u12G4') is False
+
+
+def test_incomplete_unicode_escape() -> None:
+    decoder = JSONDecoder()
+
+    assert decoder.consume_text('{"name":"Caf') is True
+    assert decoder.consume_text('\\u12') is True
+    assert decoder.consume_text('"}') is False
+
+
 def main() -> None:
     tokens = [
         '{', '"a"', ':', '0',
