@@ -40,7 +40,6 @@ du -sh /home/andry-ha/.cache/huggingface 2>/dev/null
 
 export HF_HOME="/goinfre/andry-ha/.cache/huggingface"
 export UV_CACHE_DIR="/goinfre/andry-ha/.cache/uv"
-
 mkdir -p "$HF_HOME" "$UV_CACHE_DIR"
 
 echo "HF_HOME=$HF_HOME"

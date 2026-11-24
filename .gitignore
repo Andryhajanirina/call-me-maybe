@@ -11,6 +11,9 @@ wheels/
 venv/
 venvs/
 
+# Secrets
+.env
+
 # Old dir and file
 bkp*/
 bkp*.zip

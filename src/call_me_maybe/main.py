@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/22 14:01:42 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/24 12:14:05 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -97,14 +97,21 @@ def identify_function(
                     f"Ambiguous function names: {name} and {other_name}"
                 )
 
+    # instruction = (
+    #     "You are a function-calling assistant. "
+    #     "Identify the function that best matches the user's request. "
+    #     "Return ONLY the exact function name. "
+    #     "Do not return arguments, explanations or punctuation.\n\n"
+    #     f"Available functions:\n{functions_description}\n\n"
+    #     f"User request: {prompt}\n"
+    #     "Function name:"
+    # )
     instruction = (
-        "You are a function-calling assistant. "
-        "Identify the function that best matches the user's request. "
-        "Return ONLY the exact function name. "
-        "Do not return arguments, explanations or punctuation.\n\n"
-        f"Available functions:\n{functions_description}\n\n"
-        f"User request: {prompt}\n"
-        "Function name:"
+        "Select the function matching the request.\n"
+        "Return only its exact name.\n\n"
+        f"Functions:\n{functions_description}\n\n"
+        f"Request: {prompt}\n"
+        "Function:"
     )
 
     input_ids = constraints.tokenizer.encode(instruction)
@@ -950,6 +957,8 @@ def main() -> None:
         # "Say hello to Andry",
         # "Reverse the string hello world",
         "Calculate the square root of 144",
+        "Replace all numbers in \"Hello 34 I'm 233 years old\" with NUMBERS",
+        "Replace all vowels in 'Programming is fun' with asterisks",
         # "Replace all vowels in Programming with asterisks",
     ]
     # test_prompts = [
