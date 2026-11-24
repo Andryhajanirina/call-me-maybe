@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/24 12:14:05 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/24 13:13:22 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -959,7 +959,8 @@ def main() -> None:
         "Calculate the square root of 144",
         "Replace all numbers in \"Hello 34 I'm 233 years old\" with NUMBERS",
         "Replace all vowels in 'Programming is fun' with asterisks",
-        # "Replace all vowels in Programming with asterisks",
+        "Substitute the word 'cat' with 'dog' in "
+        "'The cat sat on the mat with another cat'"
     ]
     # test_prompts = [
     #     "Say hello to Andry",
