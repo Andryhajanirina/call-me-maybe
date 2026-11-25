@@ -19,7 +19,7 @@
     "prompt": "What is the sum of ten and two?",
     "name": "fn_add_numbers",
     "parameters": {
-      "a": 125.0,
+      "a": 10.0,
       "b": 10.0
     }
   },
@@ -93,8 +93,8 @@
     "name": "fn_substitute_string_with_regex",
     "parameters": {
       "source_string": "Hello 34 I'm 233 years old",
-      "regex": "34 233",
-      "replacement": "NUMBERS"
+      "regex": "/[0-9]+/g",
+      "replacement": "34 I'm 233 years old"
     }
   },
   {
@@ -102,8 +102,8 @@
     "name": "fn_substitute_string_with_regex",
     "parameters": {
       "source_string": "Programming is fun",
-      "regex": "Programming is fun",
-      "replacement": "asterisks"
+      "regex": "aeiouy/gi",
+      "replacement": "***Programming*** is *fun*** "
     }
   },
   {
@@ -111,7 +111,7 @@
     "name": "fn_substitute_string_with_regex",
     "parameters": {
       "source_string": "The cat sat on the mat with another cat",
-      "regex": "cat\\b\\w+",
+      "regex": "dog/gi",
       "replacement": "dog"
     }
   }
