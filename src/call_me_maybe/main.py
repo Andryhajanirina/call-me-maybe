@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/25 15:28:05 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/25 18:18:32 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -256,12 +256,64 @@ def extract_numeric_values(prompt: str) -> list[str]:
     return NUMBER_PATTERN.findall(prompt)
 
 
+def normalize_regex_parameter(
+    value: str,
+    prompt: str,
+    function_description: str = "",
+) -> str:
+    """Normalize a generated regex into JavaScript /pattern/flags format."""
+
+    raw = value.strip()
+
+    if raw.startswith("/"):
+        closing_slash = raw.rfind("/")
+        if closing_slash > 0:
+            pattern = raw[1:closing_slash]
+            flags = raw[closing_slash + 1:]
+        else:
+            pattern = raw[1:]
+            flags = ""
+    else:
+        match = re.fullmatch(r"(.+)/([gimsuy]*)", raw)
+        if match:
+            pattern, flags = match.groups()
+        else:
+            pattern = raw
+            flags = ""
+
+    context = f"{prompt} {function_description}".lower()
+
+    # Convert a sequence of letters into a character class when appropriate.
+    if (
+        len(pattern) > 1
+        and pattern.isalpha()
+        and any(word in context for word in ("vowel", "letter", "character"))
+    ):
+        pattern = f"[{re.escape(pattern)}]"
+
+    # The function description may require replacing every occurrence.
+    if (
+        "replace all" in context
+        or "substitute all" in context
+        or "all occurrence" in context
+        or "every occurrence" in context
+    ):
+        if "g" not in flags:
+            flags += "g"
+
+    re.compile(pattern)
+
+    return f"/{pattern}/{flags}"
+
+
 def generate_number_parameter(
     model: Small_LLM_Model,
     prompt: str,
     function_name: str,
     parameter_name: str,
     constraints: TokenConstraints,
+    function_description: str = "",
+    parameter_description: str = "",
     max_new_tokens: int = 30,
     parameter_index: int = 0,
     parameter_count: int = 1,
@@ -298,41 +350,25 @@ def generate_number_parameter(
     #     f"JSON: {prefix}"
     # )
     instruction = (
-        "Extract one numeric argument from the user's request.\n"
-        "The request may contain several numbers.\n"
-        "Read all numeric values from left to right.\n"
-        "Select the value at the requested position.\n"
-        "Positions start at 1.\n\n"
-
-        "Examples:\n"
-        "Request: Add 125 and 250\n"
-        "Argument 1: 125\n"
-        "Argument 2: 250\n\n"
-
-        "Request: Multiply 12 by 8\n"
-        "Argument 1: 12\n"
-        "Argument 2: 8\n\n"
-
-        "Request: Add -15 and 20\n"
-        "Argument 1: -15\n"
-        "Argument 2: 20\n\n"
-
-        f"User request: {prompt}\n"
+        "Extract exactly one numeric argument from the user's request.\n"
+        "Read the request from beginning to end and identify each number "
+        "expression, including numbers written in words.\n"
+        "Map the first number expression to the first numeric parameter, "
+        "the second to the second numeric parameter, and so on.\n"
+        "For the requested parameter, return only the number at its "
+        "corresponding position. Do not reuse an earlier argument unless "
+        "the same value is explicitly repeated in the request.\n"
+        "Convert number words to digits while preserving sign and decimal "
+        "value. Do not calculate, round, or otherwise transform the value.\n"
+        "Return only one valid JSON number.\n\n"
         f"Function: {function_name}\n"
+        f"Function description: {function_description}\n"
         f"Parameter: {parameter_name}\n"
-        f"Argument position: {parameter_index + 1}\n"
-        f"Total numeric arguments: {parameter_count}\n"
-        "Return only the selected numeric value.\n"
+        f"Parameter description: {parameter_description}\n"
+        f"Argument position among numeric parameters: {parameter_index + 1} "
+        f"of {parameter_count}\n"
+        f"User request: {prompt}\n"
         f"JSON: {prefix}"
-    )
-
-    print("\n========== DEBUG INSTRUCTION ==========")
-    print(instruction)
-    print("=======================================\n")
-
-    print(
-        f"[DEBUG] parameter_index={parameter_index}, "
-        f"parameter_count={parameter_count}"
     )
 
     input_ids = constraints.tokenizer.encode(instruction)
@@ -461,6 +497,9 @@ def generate_string_parameter(
     function_name: str,
     parameter_name: str,
     constraints: TokenConstraints,
+    function_description: str = "",
+    parameter_description: str = "",
+    previous_parameters: dict[str, Any] | None = None,
     max_new_tokens: int = 60,
 ) -> str:
     """Generate one string parameter value."""
@@ -474,41 +513,114 @@ def generate_string_parameter(
     prefix = f'{{"parameters":{{"{parameter_name}":'
 
     # instruction = (
-    #     "You are a function-calling assistant. "
-    #     "Extract the exact text requested by the user. "
-    #     "Preserve the original words, capitalization and punctuation. "
-    #     "Remove quotation marks used only to delimit the text. "
-    #     "Do not add explanations or additional text. "
-    #     "Generate only the JSON string value.\n\n"
-    #     f"User request: {prompt}\n"
+    #     "Extract the value required by this function parameter.\n"
+    #     "Use the function description, parameter description, user request, "
+    #     "and previously extracted parameters together.\n"
+    #     "Use only information supported by the request.\n"
+    #     "For a source-text parameter, copy the relevant text exactly and "
+    #     "remove only quotation marks used to delimit it.\n"
+
+    #     "For a regex parameter, return one valid JavaScript regex literal "
+    #     "in the form /pattern/flags, as a JSON string.\n"
+    #     "Use these examples as syntax guidance, not as fixed answers: "
+    #     "all vowels (when y counts as a vowel): /[aeiouy]/gi; "
+    #     "all integer numbers: /[0-9]+/g or /\\d+/g.\n"
+    #     "Build each pattern dynamically from the requested target, not "
+    #     "from the source text as a whole. Use a character class for a set "
+    #     "of characters and quantifiers when they express repetition.\n"
+    #     "When the request says all or every occurrence, use the global flag "
+    #     "g. Add the case-insensitive flag i only when the requested match "
+    #     "should ignore letter case. Put flags only after the final slash.\n"
+
+    #     "A global regex matches repeated occurrences by itself: write the "
+    #     "pattern once. Never create one alternative for each occurrence, "
+    #     "repeat the pattern, or enumerate unrelated whitespace characters "
+    #     "unless the request explicitly asks for them.\n"
+    #     "Avoid unnecessary groups, captures, boundaries, alternatives, and "
+    #     "flags. Do not add characters that are not part of the target.\n"
+    #     "For a replacement parameter, return the replacement text once, "
+    #     "not one copy for each match.\n"
+    #     "For other structured values, follow the parameter description. "
+    #     "Return only the value as one valid JSON string; no explanation.\n\n"
     #     f"Function: {function_name}\n"
+    #     f"Function description: {function_description}\n"
     #     f"Parameter: {parameter_name}\n"
-    #     "Parameter type: string\n"
+    #     f"Parameter description: {parameter_description}\n"
+    #     "Previously extracted parameters (JSON): "
+    #     f"{json.dumps(previous_parameters or {}, ensure_ascii=False)}\n"
+    #     f"User request: {prompt}\n"
     #     f"JSON: {prefix}"
     # )
     instruction = (
-        "Extract a function parameter from a user request.\n"
-        "Return only the exact value requested by the user.\n"
-        "Do not explain your answer.\n"
-        "Do not repeat the request.\n"
-        "Do not include the function name or parameter name.\n\n"
+        "Extract exactly the value required by the current function "
+        "parameter.\n"
+        "Determine the parameter's role using its name and description. "
+        "Use the function description, user request, and previously "
+        "extracted parameters as context.\n"
+        "Never confuse the different roles of parameters.\n\n"
 
-        "Examples:\n"
-        "Request: Say hello to Andry\n"
-        "Parameter: name\n"
-        'Value: "Andry"\n\n'
+        "GENERAL RULES:\n"
+        "- Use only information supported by the user request.\n"
+        "- Do not invent values or copy unrelated parts of the source text.\n"
+        "- Do not repeat a value for each occurrence in the source text.\n"
+        "- Previously extracted parameters provide context, but do not "
+        "blindly copy their contents.\n\n"
 
-        "Request: Reverse the string hello world\n"
-        "Parameter: s\n"
-        'Value: "hello world"\n\n'
+        "SOURCE TEXT PARAMETERS:\n"
+        "- Return the original text that must be processed.\n"
+        "- Copy it exactly, preserving its words, spaces, and punctuation.\n"
+        "- Remove only quotation marks used to delimit the text.\n\n"
 
-        "Request: Say hello to John Smith\n"
-        "Parameter: name\n"
-        'Value: "John Smith"\n\n'
+        "REGEX PARAMETERS:\n"
+        "- Return a valid JavaScript regex literal in the exact form "
+        "/pattern/flags, as a JSON string.\n"
+        "- The regex describes WHAT MUST BE FOUND in the source text.\n"
+        "- Derive the pattern from the target specified in the user request, "
+        "not from the replacement value.\n"
+        "- NEVER use the replacement text as the regex pattern unless the "
+        "user explicitly requests that exact match.\n"
+        "- Build the pattern dynamically from the requested target.\n"
+        "- Use character classes for sets of characters and quantifiers "
+        "for repeated characters or sequences.\n"
+        "- Syntax examples: all vowels when y counts as a vowel: "
+        "/[aeiouy]/gi; all integer numbers: /[0-9]+/g or /\\d+/g.\n"
+        "- When the request says all or every occurrence, use the global "
+        "flag g.\n"
+        "- Use the case-insensitive flag i only when appropriate.\n"
+        "- Put all flags after the final slash.\n"
+        "- The opening slash is mandatory. Never return only the pattern "
+        "body followed by flags.\n"
+        "- Write the pattern only once. The global flag handles repeated "
+        "occurrences.\n"
+        "- Never enumerate occurrences or unrelated whitespace characters.\n"
+        "- Avoid unnecessary groups, captures, boundaries, alternatives, "
+        "and flags.\n\n"
 
-        f"Request: {prompt}\n"
+        "REPLACEMENT PARAMETERS:\n"
+        "- Return ONLY the new text that must be inserted in place of "
+        "the matched text.\n"
+        "- Extract this value from the replacement specified in the "
+        "user request.\n"
+        "- Do not return the source text, the matched text, or a portion "
+        "of the original sentence.\n"
+        "- Do not return the regex pattern.\n"
+        "- Return the replacement value exactly once, regardless of "
+        "how many matches exist.\n\n"
+
+        "OTHER STRING PARAMETERS:\n"
+        "- Follow the function and parameter descriptions.\n"
+        "- Extract only the information required by the parameter.\n\n"
+
+        "Return only the requested value as one valid JSON string. "
+        "Do not include explanations or additional text.\n\n"
+
+        f"Function: {function_name}\n"
+        f"Function description: {function_description}\n"
         f"Parameter: {parameter_name}\n"
-        "Return only the parameter value as a JSON string.\n"
+        f"Parameter description: {parameter_description}\n"
+        "Previously extracted parameters (JSON): "
+        f"{json.dumps(previous_parameters or {}, ensure_ascii=False)}\n"
+        f"User request: {prompt}\n"
         f"JSON: {prefix}"
     )
 
@@ -643,6 +755,16 @@ def generate_string_parameter(
             f"Expected a string, got: {value!r}"
         )
 
+    if (
+        "regex" in parameter_name.lower()
+        or "pattern" in parameter_name.lower()
+    ):
+        value = normalize_regex_parameter(
+            value,
+            prompt,
+            function_description,
+        )
+
     return value
 
 
@@ -652,9 +774,15 @@ def generate_parameters(
     function_name: str,
     parameters: list[tuple[str, ParameterType]],
     constraints: TokenConstraints,
+    schema: FunctionSchema,
 ) -> dict[str, Any]:
-    """Generate all parameters for a function."""
+    """Generate parameter values using the runtime-loaded function schema."""
 
+    function_definition = schema.get_function(function_name)
+    if function_definition is None:
+        raise ValueError(f"Unknown function: {function_name}")
+
+    function_description = function_definition.description
     generated_parameters: dict[str, Any] = {}
 
     numeric_parameter_count = sum(
@@ -682,6 +810,11 @@ def generate_parameters(
                 function_name,
                 parameter_name,
                 constraints,
+                function_description=function_description,
+                parameter_description=(
+                    function_definition.parameters[parameter_name].description
+                ),
+                previous_parameters=generated_parameters,
             )
 
         elif parameter_type in ("number", "int", "integer"):
@@ -701,6 +834,12 @@ def generate_parameters(
                     function_name,
                     parameter_name,
                     constraints,
+                    function_description=function_description,
+                    parameter_description=(
+                        function_definition.parameters[
+                            parameter_name
+                        ].description
+                    ),
                     parameter_index=numeric_parameter_index,
                     parameter_count=numeric_parameter_count,
                 )
@@ -1017,6 +1156,7 @@ def main() -> None:
                 function_name,
                 parameters,
                 constraints,
+                schema,
             )
 
             generation_time = time.perf_counter() - start

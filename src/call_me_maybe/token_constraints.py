@@ -50,6 +50,7 @@ class TokenConstraints:
         ]
 
         self.token_ids_by_text: dict[str, set[int]] = {}
+        self.token_ids_by_stripped_text: dict[str, set[int]] = {}
         self.build_token_indexes()
         self.used_parameters: set[str] = set()
         self.encoded_function_names = self.encode_function_names()
@@ -77,10 +78,14 @@ class TokenConstraints:
         """Build indexes for frequently used token texts."""
         self.string_start_tokens.clear()
         self.token_ids_by_text.clear()
+        self.token_ids_by_stripped_text.clear()
 
         for token_id, token_text in self.vocab_tokens:
             self.token_ids_by_text.setdefault(
                 token_text, set()
+            ).add(token_id)
+            self.token_ids_by_stripped_text.setdefault(
+                token_text.strip(), set()
             ).add(token_id)
 
             if token_text.startswith('"'):
@@ -97,11 +102,9 @@ class TokenConstraints:
                 target_text, set()
             ).copy()
 
-        return {
-            token_id
-            for token_id, token_text in self.vocab_tokens
-            if token_text.strip() == target_text
-        }
+        return self.token_ids_by_stripped_text.get(
+            target_text, set()
+        ).copy()
 
     def encode_function_names(self) -> dict[str, list[int]]:
         """Encode all available function names into token ID lists.
