@@ -195,3 +195,25 @@ def test_get_function_parameters_rejects_unknown_function(
 ) -> None:
     with pytest.raises(ValueError, match="Unknown function"):
         schema.get_function_parameters("unknown")
+
+
+def test_normalize_integer_parameters_round_half_up(
+    schema: FunctionSchema,
+) -> None:
+    parameters = {
+        "number_value": 1,
+        "int_value": 26.5,
+        "integer_value": 34.5,
+        "string_value": "hello",
+        "boolean_value": True,
+        "array_value": [],
+        "object_value": {},
+    }
+
+    result = schema.normalize_parameters(
+        "fn_test",
+        parameters,
+    )
+
+    assert result["int_value"] == 27
+    assert result["integer_value"] == 35

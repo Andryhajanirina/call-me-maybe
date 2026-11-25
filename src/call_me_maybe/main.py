@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/24 13:13:22 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/25 15:28:05 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -665,6 +665,12 @@ def generate_parameters(
 
     numeric_parameter_index = 0
 
+    numeric_values = extract_numeric_values(prompt)
+
+    use_direct_numeric_values = (
+        len(numeric_values) == numeric_parameter_count
+    )
+
     for parameter_name, parameter_type in parameters:
         print(f"\nParamètre : {parameter_name}")
         print(f"Type : {parameter_type}")
@@ -679,17 +685,27 @@ def generate_parameters(
             )
 
         elif parameter_type in ("number", "int", "integer"):
-            numeric_values = extract_numeric_values(prompt)
 
-            if len(numeric_values) != numeric_parameter_count:
-                raise ValueError(
-                    f"Expected {numeric_parameter_count} numeric arguments, "
-                    f"but found {len(numeric_values)} in prompt: {prompt!r}"
+            if use_direct_numeric_values:
+                # Optimisation : extraction directe sans appel au modèle.
+                value = json.loads(
+                    numeric_values[numeric_parameter_index]
                 )
 
-            value = json.loads(
-                numeric_values[numeric_parameter_index]
-            )
+            else:
+                # Repli : génération par le modèle lorsque les nombres
+                # sont écrits en lettres ou ne sont pas détectés.
+                generated_value = generate_number_parameter(
+                    model,
+                    prompt,
+                    function_name,
+                    parameter_name,
+                    constraints,
+                    parameter_index=numeric_parameter_index,
+                    parameter_count=numeric_parameter_count,
+                )
+
+                value = json.loads(generated_value)
 
             numeric_parameter_index += 1
 
@@ -842,6 +858,16 @@ def generate_text(
             if constraints.current_function is not None:
                 missing_parameters = constraints.get_missing_parameters()
                 partial_key = constraints.context.current_key
+
+                # DEBUG : vérifier pourquoi aucun token n'est autorisé
+                print("\n--- DEBUG PARAMÈTRES ---")
+                print("Fonction :", constraints.current_function)
+                print("Clé partielle :", repr(partial_key))
+                print("Paramètres utilisés :", constraints.used_parameters)
+                print("Paramètres manquants :", missing_parameters)
+                print("État JSON :", state)
+                print("------------------------\n")
+
                 allowed = set()
 
                 for token_id, token_text in constraints.vocab_tokens:
@@ -936,172 +962,103 @@ def generate_text(
 
 
 def main() -> None:
-    """Load inputs and initialize the language model."""
+    """Load inputs and generate function calls using cached schemas."""
     args = parse_args()
 
+    # Chargement des définitions et des prompts.
     schema = FunctionSchema(args.functions_definition)
     prompts = load_prompts(args.input)
 
+    # Initialisation du modèle et des contraintes une seule fois.
     model = Small_LLM_Model()
     constraints = TokenConstraints(model, schema)
 
-    results: list[FunctionCallResult] = []
+    # Description construite dynamiquement depuis functions_definition.json.
     functions_description = schema.get_functions_description()
 
-    # TEST
-    test_prompts = [
-        "Add 125 and 250",
-        "Add -15 and 20",
-        "Multiply 12.5 by 7.5",
-        "Add 0 and 5",
-        # "Say hello to Andry",
-        # "Reverse the string hello world",
-        "Calculate the square root of 144",
-        "Replace all numbers in \"Hello 34 I'm 233 years old\" with NUMBERS",
-        "Replace all vowels in 'Programming is fun' with asterisks",
-        "Substitute the word 'cat' with 'dog' in "
-        "'The cat sat on the mat with another cat'"
-    ]
-    # test_prompts = [
-    #     "Say hello to Andry",
-    #     "Reverse the string hello world",
-    #     "Say hello to John Smith",
-    # ]
+    results: list[FunctionCallResult] = []
 
-    for test_prompt in test_prompts:
-        print(f"\nPrompt testé : {test_prompt}")
+    print(f"Nombre de prompts à traiter : {len(prompts)}")
 
-        start = time.perf_counter()
-        function_name, parameters = identify_function_and_parameters(
-            model,
-            test_prompt,
-            constraints,
-            functions_description,
-            schema,
-        )
-        identification_time = time.perf_counter() - start
-
-        start = time.perf_counter()
-
-        generated_parameters = generate_parameters(
-            model,
-            test_prompt,
-            function_name,
-            parameters,
-            constraints,
-        )
-
-        generation_time = time.perf_counter() - start
-
-        print(f"Temps identification : {identification_time:.2f} s")
-        print(f"Temps génération : {generation_time:.2f} s")
-
-        generated_parameters = schema.normalize_parameters(
-            function_name,
-            generated_parameters,
-        )
-
-        print("\nParamètres générés :")
-        print(json.dumps(generated_parameters, indent=4, ensure_ascii=False))
-
-    return
-
-    # FIN TEST
-    # prompts = prompts[-3:]
-    # prompts = prompts[-2:-1]
-    # prompts = prompts[8:10]
-    # prompts = prompts[11:]
-    # prompts = prompts[8:]
-    # prompts = prompts[2:6]
-    # prompts = prompts[5:8]
-    # prompts = prompts[:4]
-    prompts = prompts[13:14]
-    print(f"Nombre de prompts à tester : {len(prompts)}")
-
-    base_instruction = (
-        "You are a function-calling assistant. "
-        "Choose the function that best matches the user's request. "
-        "Return ONLY one valid JSON object with exactly "
-        "two top-level keys: 'name' and 'parameters'. "
-        "The 'name' field must contain the exact function name. "
-        "The 'parameters' field must contain the function arguments "
-        "with their exact parameter names.\n\n"
-
-        "Formatting rules for string parameters:\n"
-        "- Preserve the requested text but "
-        "do NOT include the quotation marks used only "
-        "to delimit the text in the user's request.\n"
-        "- Values must contain only the requested text, "
-        "not quotation marks used to delimit it in the prompt.\n"
-        "- Never add leading or trailing whitespace to string values.\n\n"
-
-        "Formatting rules for regex parameters:\n"
-        "- The parameter value must be a valid JavaScript regex pattern "
-        '(e.g., "/[aeiouy]/gi") wrapped as a JSON string.\n'
-        "- Analyze the user's text-processing request and "
-        "design a pattern that precisely matches the target.\n"
-        "- Group all flags at the very end of the regex literal "
-        "(e.g., /pattern/gi).\n"
-        "- Do NOT add unnecessary flags "
-        "(e.g., do not use 'i' if the pattern only matches digits).\n"
-        "- Do NOT add unnecessary capture groups '()' or "
-        "word boundaries unless necessary.\n"
-        "- Be linguistically precise "
-        "(e.g., if matching vowels in a context that includes 'y' "
-        "as a vowel, include 'y'; always support case-insensitivity 'i' "
-        "for letters unless specified otherwise).\n\n"
-
-        "Strict Output Constraint:\n"
-        "Return ONLY the valid JSON object. "
-        "Do NOT include markdown code blocks (like ```json), "
-        "explanations, or extra commentary outside the JSON.\n\n"
-        f"Available functions:\n{functions_description}\n\n"
-        "User request: {prompt}\n"
-        "JSON:"
-    )
-
-    for item in prompts:
+    for index, item in enumerate(prompts, start=1):
         prompt = item.prompt
-        instruction = base_instruction.format(prompt=prompt)
 
-        start = time.perf_counter()
-        print(f"\nPrompt testé : {prompt}")
+        print("\n" + "=" * 60)
+        print(f"Prompt {index}/{len(prompts)} : {prompt}")
+        print("=" * 60)
 
-        result = generate_text(model, instruction, constraints)
-        # print("DEBUG résultat brut :", repr(result))
-
-        elapsed = time.perf_counter() - start
+        total_start = time.perf_counter()
 
         try:
-            generated_data = json.loads(result)
-            function_name = generated_data["name"]
+            # 1. Identifier la fonction.
+            constraints.reset()
 
-            generated_data["parameters"] = {
-                key: (val.strip("'\" ") if isinstance(val, str) else val)
-                for key, val in generated_data["parameters"].items()
-            }
+            start = time.perf_counter()
 
-            parameters = schema.normalize_parameters(
-                function_name,
-                generated_data["parameters"],
+            function_name, parameters = identify_function_and_parameters(
+                model,
+                prompt,
+                constraints,
+                functions_description,
+                schema,
             )
 
+            identification_time = time.perf_counter() - start
+
+            print(f"\nFonction identifiée : {function_name}")
+            print(f"Paramètres attendus : {parameters}")
+
+            # 2. Générer uniquement les valeurs des paramètres.
+            start = time.perf_counter()
+
+            generated_parameters = generate_parameters(
+                model,
+                prompt,
+                function_name,
+                parameters,
+                constraints,
+            )
+
+            generation_time = time.perf_counter() - start
+
+            # 3. Valider et normaliser les valeurs avec le schéma.
+            normalized_parameters = schema.normalize_parameters(
+                function_name,
+                generated_parameters,
+            )
+
+            # 4. Construire le résultat final sans demander au LLM
+            # de regénérer les noms de fonction et de paramètres.
             function_result = FunctionCallResult(
                 prompt=prompt,
                 name=function_name,
-                parameters=parameters,
+                parameters=normalized_parameters,
             )
-        except (json.JSONDecodeError, TypeError, ValueError) as e:
-            raise ValueError(
-                f"Résultat invalide pour le prompt : {prompt!r}"
-            ) from e
 
-        results.append(function_result)
+            results.append(function_result)
 
-        print(f"Temps de génération : {elapsed:.2f} secondes")
-        # print("Prompt:", prompt)
-        print("Generated:", function_result.model_dump())
+            total_time = time.perf_counter() - total_start
 
+            print("\nRésultat généré :")
+            print(
+                json.dumps(
+                    function_result.model_dump(),
+                    indent=4,
+                    ensure_ascii=False,
+                )
+            )
+
+            print("\nTemps d'exécution :")
+            print(f"  Identification : {identification_time:.3f} s")
+            print(f"  Génération     : {generation_time:.3f} s")
+            print(f"  Total          : {total_time:.3f} s")
+
+        except (ValueError, TypeError, KeyError) as error:
+            print(f"\nErreur pour le prompt : {prompt!r}")
+            print(f"Cause : {error}")
+            raise
+
+    # 5. Enregistrer les résultats.
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1113,7 +1070,10 @@ def main() -> None:
             indent=2,
         )
 
-    print(f"{len(results)} résultats enregistrés dans {output_path}")
+    print("\n" + "=" * 60)
+    print(f"Traitement terminé : {len(results)} prompts.")
+    print(f"Résultats enregistrés dans : {output_path}")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
