@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/25 18:18:32 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/26 15:56:45 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -512,6 +512,17 @@ def generate_string_parameter(
 
     prefix = f'{{"parameters":{{"{parameter_name}":'
 
+    is_replacement_parameter = (
+        "replacement" in parameter_name.lower()
+        or "replacement" in parameter_description.lower()
+    )
+
+    relevant_previous_parameters = (
+        {}
+        if is_replacement_parameter
+        else previous_parameters or {}
+    )
+
     # instruction = (
     #     "Extract the value required by this function parameter.\n"
     #     "Use the function description, parameter description, user request, "
@@ -619,10 +630,16 @@ def generate_string_parameter(
         f"Parameter: {parameter_name}\n"
         f"Parameter description: {parameter_description}\n"
         "Previously extracted parameters (JSON): "
-        f"{json.dumps(previous_parameters or {}, ensure_ascii=False)}\n"
+        # f"{json.dumps(previous_parameters or {}, ensure_ascii=False)}\n"
+        f"{json.dumps(relevant_previous_parameters, ensure_ascii=False)}\n"
         f"User request: {prompt}\n"
         f"JSON: {prefix}"
     )
+
+    if parameter_name == "replacement":
+        print("\n[DEBUG INSTRUCTION REPLACEMENT]")
+        print(instruction)
+        print("[END DEBUG INSTRUCTION]\n")
 
     input_ids = constraints.tokenizer.encode(instruction)
     generated_tokens: list[int] = []
@@ -712,6 +729,35 @@ def generate_string_parameter(
             key=lambda token_id: logits[token_id],
         )
 
+        if (
+            parameter_name == "replacement"
+            and state == JSONState.VALUE_CONTENT
+            and len(generated_tokens) == 1
+        ):
+            quote_id = constraints.tokenizer.encode('"')[0]
+
+            print(
+                "[DEBUG FERMETURE]",
+                "score guillemet =",
+                float(logits[quote_id]),
+                "score token choisi =",
+                float(logits[next_id]),
+            )
+
+        if parameter_name == "replacement":
+            top_tokens = sorted(
+                allowed,
+                key=lambda token_id: logits[token_id],
+                reverse=True,
+            )[:10]
+
+            print("\n[DEBUG TOP 10 REPLACEMENT]")
+            for token_id in top_tokens:
+                print(
+                    repr(constraints.get_token_text(token_id)),
+                    float(logits[token_id]),
+                )
+
         print(
             f"[DEBUG CHOIX] "
             f"token={constraints.get_token_text(next_id)!r}, "
@@ -759,11 +805,15 @@ def generate_string_parameter(
         "regex" in parameter_name.lower()
         or "pattern" in parameter_name.lower()
     ):
+        print(f"[DEBUG] Regex avant normalisation : {value}")
+
         value = normalize_regex_parameter(
             value,
             prompt,
             function_description,
         )
+
+        print(f"[DEBUG] Regex après normalisation : {value}")
 
     return value
 
