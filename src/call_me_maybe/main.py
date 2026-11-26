@@ -7,7 +7,7 @@
 #   By: andry-ha <andry-ha@student.42antananarivo.   +#+  +:+       +#+       #
 #                                                  +#+#+#+#+#+   +#+          #
 #   Created: 2026/08/19 11:43:04 by andry-ha            #+#    #+#            #
-#   Updated: 2026/11/26 15:56:45 by andry-ha           ###   ########.fr      #
+#   Updated: 2026/11/26 16:57:50 by andry-ha           ###   ########.fr      #
 #                                                                             #
 # ########################################################################### #
 
@@ -254,6 +254,43 @@ NUMBER_PATTERN = re.compile(
 def extract_numeric_values(prompt: str) -> list[str]:
     """Extract numeric values from a user request, in order."""
     return NUMBER_PATTERN.findall(prompt)
+
+
+def extract_explicit_replacement(prompt: str) -> str | None:
+    """Extract an explicitly stated replacement value from a request."""
+
+    marker = re.search(r"\b(?:with|by)\s+", prompt, re.IGNORECASE)
+
+    if marker is None:
+        return None
+
+    remaining = prompt[marker.end():].lstrip()
+
+    if not remaining:
+        return None
+
+    # Preserve a quoted replacement, including spaces and punctuation.
+    if remaining[0] in ("'", '"'):
+        quote = remaining[0]
+        end = remaining.find(quote, 1)
+
+        if end == -1:
+            return None
+
+        return remaining[1:end]
+
+    # Accept an unquoted, single-token replacement.
+    match = re.match(r"([^\s,;]+)", remaining)
+
+    if match is None:
+        return None
+
+    value = match.group(1).rstrip(".!?")
+
+    if not value or value.lower() in {"a", "an", "the"}:
+        return None
+
+    return value
 
 
 def normalize_regex_parameter(
@@ -516,6 +553,12 @@ def generate_string_parameter(
         "replacement" in parameter_name.lower()
         or "replacement" in parameter_description.lower()
     )
+
+    if is_replacement_parameter:
+        explicit_replacement = extract_explicit_replacement(prompt)
+
+        if explicit_replacement is not None:
+            return explicit_replacement
 
     relevant_previous_parameters = (
         {}
